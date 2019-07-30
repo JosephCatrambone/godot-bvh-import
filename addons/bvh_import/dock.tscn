@@ -6,53 +6,36 @@
 anchor_right = 1.0
 anchor_bottom = 1.0
 script = ExtResource( 1 )
+bone_remapping = {
 
-[node name="AnimationPlayerPathLabel" type="Label" parent="."]
+}
+
+[node name="ArmatureNameLabel" type="Label" parent="."]
 margin_right = 1024.0
 margin_bottom = 14.0
-text = "AnimationPlayer Path:"
+text = "Armature Name:"
 
-[node name="AnimationPlayer" type="HBoxContainer" parent="."]
+[node name="ArmatureNameInput" type="LineEdit" parent="."]
 margin_top = 18.0
 margin_right = 1024.0
 margin_bottom = 42.0
-
-[node name="PlayerPath" type="LineEdit" parent="AnimationPlayer"]
-margin_right = 856.0
-margin_bottom = 24.0
 size_flags_horizontal = 3
-text = "./AnimationPlayer"
-placeholder_text = "Path to Animation Player Node"
+text = "Armature"
+placeholder_text = "Armature Name"
 
-[node name="Button" type="Button" parent="AnimationPlayer"]
-margin_left = 860.0
-margin_right = 1024.0
-margin_bottom = 24.0
-text = "Select Animation Player"
-
-[node name="BVHFileLabel" type="Label" parent="."]
+[node name="AnimationPlayerLabel" type="Label" parent="."]
 margin_top = 46.0
 margin_right = 1024.0
 margin_bottom = 60.0
-text = "BVH File:"
+text = "Animation Player Name:"
 
-[node name="BVHFile" type="HBoxContainer" parent="."]
+[node name="AnimationPlayerNameInput" type="LineEdit" parent="."]
 margin_top = 64.0
 margin_right = 1024.0
 margin_bottom = 88.0
-
-[node name="FilenameInput" type="LineEdit" parent="BVHFile"]
-margin_right = 942.0
-margin_bottom = 24.0
 size_flags_horizontal = 3
-text = "res://BVH"
-placeholder_text = "BVH Filename"
-
-[node name="Button" type="Button" parent="BVHFile"]
-margin_left = 946.0
-margin_right = 1024.0
-margin_bottom = 24.0
-text = "Select File"
+text = "AnimationPlayer"
+placeholder_text = "AnimtionPlayer"
 
 [node name="NewAnimNameLabel" type="Label" parent="."]
 margin_top = 92.0
@@ -78,3 +61,14 @@ text = "Import"
 margin_top = 162.0
 margin_right = 1024.0
 margin_bottom = 166.0
+
+[node name="FileDialog" type="FileDialog" parent="."]
+margin_right = 275.0
+margin_bottom = 130.0
+rect_min_size = Vector2( 480, 320 )
+window_title = "Open a File"
+mode = 0
+access = 2
+filters = PoolStringArray( "*.bvh ; Biovision Hierarchy" )
+current_dir = "E:/GodotProjects/godot-bvh-import"
+current_path = "E:/GodotProjects/godot-bvh-import/"
