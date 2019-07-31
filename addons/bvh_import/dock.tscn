@@ -1,6 +1,9 @@
-[gd_scene load_steps=2 format=2]
+[gd_scene load_steps=3 format=2]
 
 [ext_resource path="res://addons/bvh_import/main.gd" type="Script" id=1]
+
+[sub_resource type="ButtonGroup" id=1]
+resource_name = "AxisOrderingGroup"
 
 [node name="BVHImport" type="VBoxContainer"]
 anchor_right = 1.0
@@ -9,6 +12,17 @@ script = ExtResource( 1 )
 bone_remapping = {
 
 }
+
+[node name="FileDialog" type="FileDialog" parent="."]
+margin_right = 480.0
+margin_bottom = 320.0
+rect_min_size = Vector2( 480, 320 )
+window_title = "Open a File"
+mode = 0
+access = 2
+filters = PoolStringArray( "*.bvh ; Biovision Hierarchy", "*.bvh ; Biovision Hierarchy" )
+current_dir = "E:/GodotProjects/godot-bvh-import"
+current_path = "E:/GodotProjects/godot-bvh-import/"
 
 [node name="ArmatureNameLabel" type="Label" parent="."]
 margin_right = 1024.0
@@ -51,24 +65,73 @@ size_flags_horizontal = 3
 text = "BVH Animation 00"
 placeholder_text = "Animtion Name"
 
-[node name="ImportButton" type="Button" parent="."]
+[node name="HSeparator" type="HSeparator" parent="."]
 margin_top = 138.0
 margin_right = 1024.0
-margin_bottom = 158.0
+margin_bottom = 142.0
+
+[node name="ShowImportTweaks" type="CheckButton" parent="."]
+margin_top = 146.0
+margin_right = 1024.0
+margin_bottom = 186.0
+text = "Show Import Tweaks"
+
+[node name="ImportTweaks" type="VBoxContainer" parent="."]
+visible = false
+margin_top = 190.0
+margin_right = 1024.0
+margin_bottom = 294.0
+
+[node name="FlipXInput" type="CheckBox" parent="ImportTweaks"]
+margin_right = 1024.0
+margin_bottom = 24.0
+text = "Flip X Rotation"
+
+[node name="FlipYInput" type="CheckBox" parent="ImportTweaks"]
+margin_top = 28.0
+margin_right = 1024.0
+margin_bottom = 52.0
+text = "Flip Y Rotation"
+
+[node name="FlipZInput" type="CheckBox" parent="ImportTweaks"]
+margin_top = 56.0
+margin_right = 1024.0
+margin_bottom = 80.0
+text = "Flip Z Rotation"
+
+[node name="AxisOrderingOption" type="OptionButton" parent="ImportTweaks"]
+margin_top = 84.0
+margin_right = 1024.0
+margin_bottom = 104.0
+group = SubResource( 1 )
+text = "Axis Ordering"
+
+[node name="HSeparator2" type="HSeparator" parent="."]
+margin_top = 190.0
+margin_right = 1024.0
+margin_bottom = 194.0
+
+[node name="ShowBoneRetargeting" type="CheckButton" parent="."]
+margin_top = 198.0
+margin_right = 1024.0
+margin_bottom = 238.0
+disabled = true
+text = "Show Bone Retargeting Options"
+
+[node name="HSeparator3" type="HSeparator" parent="."]
+margin_top = 242.0
+margin_right = 1024.0
+margin_bottom = 246.0
+
+[node name="ImportButton" type="Button" parent="."]
+margin_top = 250.0
+margin_right = 1024.0
+margin_bottom = 270.0
 text = "Import"
 
-[node name="HSeparator" type="HSeparator" parent="."]
-margin_top = 162.0
+[node name="ReimportButton" type="Button" parent="."]
+margin_top = 274.0
 margin_right = 1024.0
-margin_bottom = 166.0
-
-[node name="FileDialog" type="FileDialog" parent="."]
-margin_right = 275.0
-margin_bottom = 130.0
-rect_min_size = Vector2( 480, 320 )
-window_title = "Open a File"
-mode = 0
-access = 2
-filters = PoolStringArray( "*.bvh ; Biovision Hierarchy" )
-current_dir = "E:/GodotProjects/godot-bvh-import"
-current_path = "E:/GodotProjects/godot-bvh-import/"
+margin_bottom = 294.0
+disabled = true
+text = "Reimport"
