@@ -239,7 +239,6 @@ func parse_hierarchy(text:Array):# -> [Array, Dictionary, Dictionary]:
 			current_bone = line.split(" ", false)[1]
 			bone_names.append(current_bone)
 			bone_index_map[current_bone] = [-1, -1, -1, -1, -1, -1] # -1 means not in collection.
-			print("Got bone: ", current_bone)
 		elif line.begins_with("OFFSET"):
 			var data:Array = line.split(" ", false)
 			bone_offsets[current_bone] = [data[1].to_float(), data[2].to_float(), data[3].to_float()]
@@ -299,6 +298,7 @@ func parse_motion(bone_names:Array, bone_index_map:Dictionary, bone_offsets:Dict
 			if transformZIndex != -1:
 				translation.z = values[transformZIndex] + bone_offsets[bone_name][2]
 			
+			print(step, " ", bone_name)
 			var raw_rotation_values = Vector3(0, 0, 0)
 			# NOTE: Not actually anything like axis-angle, just a convenient placeholder for a triple.
 			if rotationXIndex != -1:
@@ -307,6 +307,7 @@ func parse_motion(bone_names:Array, bone_index_map:Dictionary, bone_offsets:Dict
 				raw_rotation_values.y = values[rotationYIndex]
 			if rotationZIndex != -1:
 				raw_rotation_values.z = values[rotationZIndex]
+			print("Starting Z rotation: ", raw_rotation_values.z)
 			
 			var transformed_values = _convert_coordinate_systems(translation.x, translation.y, translation.z, raw_rotation_values.x, raw_rotation_values.y, raw_rotation_values.z)
 			translation.x = transformed_values[0]
@@ -315,8 +316,9 @@ func parse_motion(bone_names:Array, bone_index_map:Dictionary, bone_offsets:Dict
 			raw_rotation_values.x = transformed_values[3]
 			raw_rotation_values.y = transformed_values[4]
 			raw_rotation_values.z = transformed_values[5]
+			print("Rearranged Y rotation: ", raw_rotation_values.y)
 			
-			var rotation = Basis()
+			var rotation = Basis(Quat.IDENTITY)
 			if rotationXIndex != -1 and rotationYIndex != -1 and rotationZIndex != -1:
 				var ordering:String = ""
 				if config[AXIS_ORDER] == AXIS_ORDERING.NATIVE:
@@ -351,6 +353,8 @@ func parse_motion(bone_names:Array, bone_index_map:Dictionary, bone_offsets:Dict
 				for axis in ordering:
 					rotation = _apply_rotation(rotation, raw_rotation_values.x, raw_rotation_values.y, raw_rotation_values.z, axis)
 			
+			print("Transformed Y rotation euler: ", rotation.get_euler().y)
+			
 			#metarig:spine.006
 			#animation.track_set_path(track_index, "Enemy:position.x")
 			#animation.track_insert_key(track_index, step*timestep, values[i])
@@ -364,25 +368,31 @@ func parse_motion(bone_names:Array, bone_index_map:Dictionary, bone_offsets:Dict
 
 func _apply_rotation(rotation:Basis, x:float, y:float, z:float, axis:String) -> Basis:
 	var config = get_config_data()
-	if x != 0.0:
+	
+	print("Rotation before: ", rotation.get_euler())
+	if x != 0.0 and axis == "X":
 		var rot_scale = 1.0
 		if config[FLIP_X_ROTATION]:
 			rot_scale = -1.0
 		var rot = deg2rad(x) * rot_scale
+		print("Rotating basis by x = ", x, " / ", deg2rad(x), ".")
 		rotation = rotation.rotated(Vector3(1, 0, 0), rot)
-	if y != 0.0:
+	elif y != 0.0 and axis == "Y":
 		var rot_scale = 1.0
 		if config[FLIP_Y_ROTATION]:
 			rot_scale = -1.0
 		var rot = deg2rad(y) * rot_scale
+		print("Rotating basis by y = ", y, " / ", deg2rad(y), ".")
 		rotation = rotation.rotated(Vector3(0, 1, 0), rot)
-	if z != 0.0:
+	elif z != 0.0 and axis == "Z":
 		var rot_scale = 1.0
 		if config[FLIP_Z_ROTATION]:
 			rot_scale = -1.0
 		var rot = deg2rad(z) * rot_scale
+		print("Rotating basis by z = ", z, " / ", deg2rad(z), ".")
 		rotation = rotation.rotated(Vector3(0, 0, 1), rot)
-	return rotation
+	print("Rotation after: ", rotation.get_euler())
+	return rotation.orthonormalized()
 
 func _convert_coordinate_systems(xpos:float, ypos:float, zpos:float, xrot:float, yrot:float, zrot:float) -> Array:
 	# Our current system uses +X for right, +Y for up, -Z for forward
