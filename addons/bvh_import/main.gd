@@ -17,6 +17,8 @@ var flip_x_rotation_checkbox:CheckBox
 var flip_y_rotation_checkbox:CheckBox
 var flip_z_rotation_checkbox:CheckBox
 var axis_ordering_dropdown:OptionButton
+var reverse_axis_order:CheckBox
+var source_coordinate_system_dropdown:OptionButton
 # Import buttons
 var import_button:Button
 var reimport_button:Button
@@ -25,14 +27,20 @@ var reimport_button:Button
 export(Dictionary) var bone_remapping:Dictionary = Dictionary()
 
 # We keep in our bone_to_index_map a mapping of bone names (string) to an array of indices.  The index values are determined by this:
-var channel_names = ["Xposition", "Yposition", "Zposition", "Xrotation", "Yrotation", "Zrotation"]
+const XPOS = "Xposition"
+const YPOS = "Yposition"
+const ZPOS = "Zposition"
+const XROT = "Xrotation"
+const YROT = "Yrotation"
+const ZROT = "Zrotation"
+var channel_names = [XPOS, YPOS, ZPOS, XROT, YROT, ZROT]
 var channel_index_map = {
-	"Xposition": 0,
-	"Yposition": 1,
-	"Zposition": 2,
-	"Xrotation": 3,
-	"Yrotation": 4,
-	"Zrotation": 5
+	XPOS: 0,
+	YPOS: 1,
+	ZPOS: 2,
+	XROT: 3,
+	YROT: 4,
+	ZROT: 5
 }
 # Constants we use in our config.
 const RIG_NAME = "rig_name"
@@ -41,6 +49,17 @@ const NEW_ANIM_NAME = "new_animation_name"
 var AXIS_ORDERING_NAMES = ["Native", "XYZ", "XZY", "YXZ", "YZX", "ZXY", "ZYX"]
 enum AXIS_ORDERING { NATIVE = 0, XYZ, XZY, YXZ, YZX, ZXY, ZYX }
 const AXIS_ORDER = "force_axis_ordering"
+const REVERSE_AXIS_ORDER = "reverse_native_order"
+const FLIP_X_ROTATION = "flip_x_rot"
+const FLIP_Y_ROTATION = "flip_y_rot"
+const FLIP_Z_ROTATION = "flip_z_rot"
+var SOURCE_COORDINATE_SYSTEM_NAMES = ["Blender (Right +X, Up +Z, Forward +Y)", "Ignore", "Godot (Right +X, Up +Y, Forward -Z)"]
+enum COORDINATE_SYSTEM { PX_PZ_PY, IGNORE, PX_PY_NZ } # Right/Up/Forward
+const SRC_COORD_SYSTEM = "coordinate_system" # The key for our config.
+
+# GX1 -> +X is right.
+# GZ1 -> +Z is up.
+# GY1 -> +Y is forward.
 
 func _ready():
 	open_file_dialog = get_node("FileDialog")
@@ -64,6 +83,11 @@ func _ready():
 	for i in AXIS_ORDERING.values():
 		axis_ordering_dropdown.add_item(AXIS_ORDERING_NAMES[i], i)
 	axis_ordering_dropdown.select(AXIS_ORDERING.NATIVE)
+	reverse_axis_order = get_node("ImportTweaks/ReverseAxisOrder")
+	source_coordinate_system_dropdown = get_node("ImportTweaks/SourceCoordinateSystem")
+	for i in COORDINATE_SYSTEM.values():
+		source_coordinate_system_dropdown.add_item(SOURCE_COORDINATE_SYSTEM_NAMES[i], i)
+	source_coordinate_system_dropdown.select(COORDINATE_SYSTEM.PX_PZ_PY)
 	
 	import_button = get_node("ImportButton")
 	import_button.connect("pressed", self, "_import")
@@ -82,6 +106,11 @@ func get_config_data() -> Dictionary:
 	config[ANIM_PLAYER_NAME] = animation_player_name_input.text
 	config[NEW_ANIM_NAME] = animation_name_input.text
 	config[AXIS_ORDER] = axis_ordering_dropdown.selected
+	config[FLIP_X_ROTATION] = flip_x_rotation_checkbox.pressed
+	config[FLIP_Y_ROTATION] = flip_y_rotation_checkbox.pressed
+	config[FLIP_Z_ROTATION] = flip_z_rotation_checkbox.pressed
+	config[REVERSE_AXIS_ORDER] = reverse_axis_order.pressed
+	config[SRC_COORD_SYSTEM] = source_coordinate_system_dropdown.selected
 	return config
 
 func _import():
@@ -141,11 +170,12 @@ func load_bvh_filename(filename:String) -> Animation:
 	var hierarchy_lines = parsed_file[0]
 	var motion_lines = parsed_file[1]
 	
-	var element_order_and_parent_map = parse_hierarchy(hierarchy_lines)
-	var bone_names = element_order_and_parent_map[0]
-	var bone_index_map:Dictionary = element_order_and_parent_map[1]
+	var hdata = parse_hierarchy(hierarchy_lines)
+	var bone_names:Array = hdata[0]
+	var bone_index_map:Dictionary = hdata[1]
+	var bone_offsets:Dictionary = hdata[2]
 	
-	return parse_motion(bone_names, bone_index_map, motion_lines)
+	return parse_motion(bone_names, bone_index_map, bone_offsets, motion_lines)
 
 func parse_bvh(fulltext:String) -> Array:
 	# Split the fulltext by the elements from HIERARCHY to MOTION, and MOTION until the end of file.
@@ -175,15 +205,14 @@ func parse_bvh(fulltext:String) -> Array:
 	
 	return [hierarchy_lines, motion_lines]
 
-func parse_hierarchy(text:Array):# -> [Array, Dictionary]:
+func parse_hierarchy(text:Array):# -> [Array, Dictionary, Dictionary]:
 	# Given the plaintext HIERARCHY from HIERARCHY until MOTION,
-	# pull out the bones AND the order of the features, 
+	# pull out the bones AND the order of the features AND the bone offsets, 
 	# returning a list of the order of the element names.
-	# I.e., ["Armature:hips:rotation.x", "Armature:hips:rotation.y", ..., "Armature:hips/spine1/spine2/spine3:rotation.z"]
-	# Will also return a map from bone to parent.
-	# Will apply the bone remapping in bone_remapping if not null to the Element Names in the first return value.
+	# We don't apply any bone remapping in here.
 	var bone_names:Array = Array()
 	var bone_index_map:Dictionary = Dictionary() # Maps from bone name to array of [index of x trans (or -1), y trans, z trans, x rot, y rot, z rot]
+	var bone_offsets:Dictionary = Dictionary()
 		
 	# NOTE: We are not keeping the structure of the hierarchy because we don't need it.
 	# We only need the order of the channels and names of the bones.
@@ -197,7 +226,7 @@ func parse_hierarchy(text:Array):# -> [Array, Dictionary]:
 			current_bone = line.split(" ", false)[1]
 			bone_names.append(current_bone)
 			bone_index_map[current_bone] = [-1, -1, -1, -1, -1, -1] # -1 means not in collection.
-			print("Got bone: ", current_bone)
+			bone_offsets[current_bone] = [0, 0, 0]
 		elif line.begins_with("CHANNELS"):
 			var data:Array = line.split(" ", false)
 			var num_channels = data[1].to_int()
@@ -205,17 +234,20 @@ func parse_hierarchy(text:Array):# -> [Array, Dictionary]:
 				var chan = data[2+c]
 				bone_index_map[current_bone][channel_index_map[chan]] = data_index
 				data_index += 1
-				print("Channel: ", chan, " -> Idx: ", data_index)
+				#print("Channel: ", chan, " -> Idx: ", data_index)
 		elif line.begins_with("JOINT"):
 			current_bone = line.split(" ", false)[1]
 			bone_names.append(current_bone)
 			bone_index_map[current_bone] = [-1, -1, -1, -1, -1, -1] # -1 means not in collection.
 			print("Got bone: ", current_bone)
+		elif line.begins_with("OFFSET"):
+			var data:Array = line.split(" ", false)
+			bone_offsets[current_bone] = [data[1].to_float(), data[2].to_float(), data[3].to_float()]
 	
-	return [bone_names, bone_index_map]
+	return [bone_names, bone_index_map, bone_offsets]
 
 # WARNING: This method will mutate the input text array.
-func parse_motion(bone_names:Array, bone_index_map:Dictionary, text:Array, swap_yrot_zrot = true, invert_yup = false) -> Animation:
+func parse_motion(bone_names:Array, bone_index_map:Dictionary, bone_offsets:Dictionary, text:Array) -> Animation:
 	var config = get_config_data()
 	
 	var num_frames = 0
@@ -246,56 +278,121 @@ func parse_motion(bone_names:Array, bone_index_map:Dictionary, text:Array, swap_
 
 	var step:int = 0
 	for line in text:
-		var values = line.split_floats(" ", false)
+		var values = line.strip_edges().split_floats(" ", false)
 		for i in range(len(bone_names)):
-			var bone_index_increment = 0
 			var track_index = element_track_index_map[i]
 			var bone_name = bone_names[i]
 			
-			var transformXIndex = bone_index_map[bone_name][0]
-			var transformYIndex = bone_index_map[bone_name][1]
-			var transformZIndex = bone_index_map[bone_name][2]
-			var rotationXIndex = bone_index_map[bone_name][3]
-			var rotationYIndex = bone_index_map[bone_name][4]
-			var rotationZIndex = bone_index_map[bone_name][5]
-			
+			# TODO: I think the channel index map is superfluous.
+			var transformXIndex = bone_index_map[bone_name][channel_index_map[XPOS]]
+			var transformYIndex = bone_index_map[bone_name][channel_index_map[YPOS]]
+			var transformZIndex = bone_index_map[bone_name][channel_index_map[ZPOS]]
+			var rotationXIndex = bone_index_map[bone_name][channel_index_map[XROT]]
+			var rotationYIndex = bone_index_map[bone_name][channel_index_map[YROT]]
+			var rotationZIndex = bone_index_map[bone_name][channel_index_map[ZROT]]
+					
 			var translation = Vector3(0, 0, 0)
 			if transformXIndex != -1:
-				bone_index_increment += 1
-				translation.x = values[transformXIndex]
+				translation.x = values[transformXIndex] + bone_offsets[bone_name][0]
 			if transformYIndex != -1:
-				bone_index_increment += 1
-				translation.y = values[transformYIndex]
+				translation.y = values[transformYIndex] + bone_offsets[bone_name][1]
 			if transformZIndex != -1:
-				bone_index_increment += 1
-				translation.z = values[transformZIndex]
+				translation.z = values[transformZIndex] + bone_offsets[bone_name][2]
 			
-			if swap_yrot_zrot and rotationZIndex != -1 and rotationYIndex != -1:
-				var temp = values[rotationZIndex]
-				values[rotationZIndex] = values[rotationYIndex]
-				values[rotationYIndex] = temp
+			var raw_rotation_values = Vector3(0, 0, 0)
+			# NOTE: Not actually anything like axis-angle, just a convenient placeholder for a triple.
+			if rotationXIndex != -1:
+				raw_rotation_values.x = values[rotationXIndex]
+			if rotationYIndex != -1:
+				raw_rotation_values.y = values[rotationYIndex]
+			if rotationZIndex != -1:
+				raw_rotation_values.z = values[rotationZIndex]
+			
+			var transformed_values = _convert_coordinate_systems(translation.x, translation.y, translation.z, raw_rotation_values.x, raw_rotation_values.y, raw_rotation_values.z)
+			translation.x = transformed_values[0]
+			translation.y = transformed_values[1]
+			translation.z = transformed_values[2]
+			raw_rotation_values.x = transformed_values[3]
+			raw_rotation_values.y = transformed_values[4]
+			raw_rotation_values.z = transformed_values[5]
 			
 			var rotation = Basis()
-			if rotationZIndex != -1:
-				bone_index_increment += 1
-				rotation = rotation.rotated(Vector3(0, 0, 1), deg2rad(values[rotationZIndex]))
-			if rotationXIndex != -1:
-				bone_index_increment += 1
-				rotation = rotation.rotated(Vector3(1, 0, 0), deg2rad(values[rotationXIndex]))
-			if rotationYIndex != -1:
-				bone_index_increment += 1
-				if invert_yup:
-					rotation = rotation.rotated(Vector3(0, -1, 0), deg2rad(values[rotationYIndex]))
+			if rotationXIndex != -1 and rotationYIndex != -1 and rotationZIndex != -1:
+				var ordering:String = ""
+				if config[AXIS_ORDER] == AXIS_ORDERING.NATIVE:
+					# This is a bit messy.  'Native' rotation order means we apply the rotation in the order we read it.
+					# That means picking the minimum index of XYZ and applying it, then the next index, etc.
+					if rotationXIndex < rotationYIndex and rotationXIndex < rotationZIndex:
+						ordering += "X"
+						if rotationYIndex < rotationZIndex:
+							ordering += "YZ"
+						else:
+							ordering += "ZY"
+					elif rotationYIndex < rotationXIndex and rotationYIndex < rotationZIndex:
+						ordering += "Y"
+						if rotationXIndex < rotationZIndex:
+							ordering += "XZ"
+						else:
+							ordering += "ZX"
+					else: # Z is first.
+						ordering += "Z"
+						if rotationXIndex < rotationYIndex:
+							ordering += "XY"
+						else:
+							ordering += "YX"
+					if config[REVERSE_AXIS_ORDER]:
+						var new_order:String = ""
+						for axis in ordering:
+							new_order = axis + new_order
+						ordering = new_order
 				else:
-					rotation = rotation.rotated(Vector3(0, 1, 0), deg2rad(values[rotationYIndex]))
-
-			# BVH uses vR = vYXZ rotation order. 
+					ordering = AXIS_ORDERING_NAMES[config[AXIS_ORDER]]
+				# Apply the rotations in the right order.
+				for axis in ordering:
+					rotation = _apply_rotation(rotation, raw_rotation_values.x, raw_rotation_values.y, raw_rotation_values.z, axis)
 			
 			#metarig:spine.006
 			#animation.track_set_path(track_index, "Enemy:position.x")
 			#animation.track_insert_key(track_index, step*timestep, values[i])
 			animation.track_set_path(track_index, rig_name + ":" + bone_name)
 			animation.transform_track_insert_key(track_index, step*timestep, translation, rotation.get_rotation_quat(), Vector3(1, 1, 1))
+			var quat = rotation.get_rotation_quat()
+			print(bone_name, " ", translation.x, " ", translation.y, " ", translation.z, " ", quat.x, " ", quat.y, " ", quat.z, " ", quat.w)
 		step += 1
 	
 	return animation
+
+func _apply_rotation(rotation:Basis, x:float, y:float, z:float, axis:String) -> Basis:
+	var config = get_config_data()
+	if x != 0.0:
+		var rot_scale = 1.0
+		if config[FLIP_X_ROTATION]:
+			rot_scale = -1.0
+		var rot = deg2rad(x) * rot_scale
+		rotation = rotation.rotated(Vector3(1, 0, 0), rot)
+	if y != 0.0:
+		var rot_scale = 1.0
+		if config[FLIP_Y_ROTATION]:
+			rot_scale = -1.0
+		var rot = deg2rad(y) * rot_scale
+		rotation = rotation.rotated(Vector3(0, 1, 0), rot)
+	if z != 0.0:
+		var rot_scale = 1.0
+		if config[FLIP_Z_ROTATION]:
+			rot_scale = -1.0
+		var rot = deg2rad(z) * rot_scale
+		rotation = rotation.rotated(Vector3(0, 0, 1), rot)
+	return rotation
+
+func _convert_coordinate_systems(xpos:float, ypos:float, zpos:float, xrot:float, yrot:float, zrot:float) -> Array:
+	# Our current system uses +X for right, +Y for up, -Z for forward
+	var config = get_config_data()
+	match config[SRC_COORD_SYSTEM]:
+		# Right, up, forward.
+		COORDINATE_SYSTEM.PX_PZ_PY:
+			# TODO: Fix rotations, too.
+			return [xpos, zpos, -ypos, xrot, zrot, yrot]
+		COORDINATE_SYSTEM.PX_PY_NZ, COORDINATE_SYSTEM.IGNORE, _:
+			return [xpos, ypos, zpos, xrot, yrot, zrot]
+	printerr("_convert_coordinate_system: Fell through matching condition.  How did you get here?")
+	return [xpos, ypos, zpos, xrot, yrot, zrot]
