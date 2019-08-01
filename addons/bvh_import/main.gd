@@ -46,8 +46,8 @@ var channel_index_map = {
 const RIG_NAME = "rig_name"
 const ANIM_PLAYER_NAME = "animation_player_name"
 const NEW_ANIM_NAME = "new_animation_name"
-var AXIS_ORDERING_NAMES = ["Native", "XYZ", "XZY", "YXZ", "YZX", "ZXY", "ZYX"]
-enum AXIS_ORDERING { NATIVE = 0, XYZ, XZY, YXZ, YZX, ZXY, ZYX }
+var AXIS_ORDERING_NAMES = ["Native/Best Guess", "Raw Euler Angle", "XYZ", "XZY", "YXZ", "YZX", "ZXY", "ZYX"]
+enum AXIS_ORDERING { NATIVE = 0, RAW, XYZ, XZY, YXZ, YZX, ZXY, ZYX }
 const AXIS_ORDER = "force_axis_ordering"
 const REVERSE_AXIS_ORDER = "reverse_native_order"
 const FLIP_X_ROTATION = "flip_x_rot"
@@ -292,14 +292,14 @@ func parse_motion(bone_names:Array, bone_index_map:Dictionary, bone_offsets:Dict
 					
 			var translation = Vector3(0, 0, 0)
 			if transformXIndex != -1:
-				translation.x = values[transformXIndex] + bone_offsets[bone_name][0]
+				translation.x = values[transformXIndex]# + bone_offsets[bone_name][0]
 			if transformYIndex != -1:
-				translation.y = values[transformYIndex] + bone_offsets[bone_name][1]
+				translation.y = values[transformYIndex]# + bone_offsets[bone_name][1]
 			if transformZIndex != -1:
-				translation.z = values[transformZIndex] + bone_offsets[bone_name][2]
+				translation.z = values[transformZIndex]# + bone_offsets[bone_name][2]
 			
 			print(step, " ", bone_name)
-			var raw_rotation_values = Vector3(0, 0, 0)
+			var raw_rotation_values:Vector3 = Vector3(0, 0, 0)
 			# NOTE: Not actually anything like axis-angle, just a convenient placeholder for a triple.
 			if rotationXIndex != -1:
 				raw_rotation_values.x = values[rotationXIndex]
@@ -318,40 +318,46 @@ func parse_motion(bone_names:Array, bone_index_map:Dictionary, bone_offsets:Dict
 			raw_rotation_values.z = transformed_values[5]
 			print("Rearranged Y rotation: ", raw_rotation_values.y)
 			
-			var rotation = Basis(Quat.IDENTITY)
+			var rotation = Basis()
 			if rotationXIndex != -1 and rotationYIndex != -1 and rotationZIndex != -1:
 				var ordering:String = ""
-				if config[AXIS_ORDER] == AXIS_ORDERING.NATIVE:
-					# This is a bit messy.  'Native' rotation order means we apply the rotation in the order we read it.
-					# That means picking the minimum index of XYZ and applying it, then the next index, etc.
-					if rotationXIndex < rotationYIndex and rotationXIndex < rotationZIndex:
-						ordering += "X"
-						if rotationYIndex < rotationZIndex:
-							ordering += "YZ"
-						else:
-							ordering += "ZY"
-					elif rotationYIndex < rotationXIndex and rotationYIndex < rotationZIndex:
-						ordering += "Y"
-						if rotationXIndex < rotationZIndex:
-							ordering += "XZ"
-						else:
-							ordering += "ZX"
-					else: # Z is first.
-						ordering += "Z"
-						if rotationXIndex < rotationYIndex:
-							ordering += "XY"
-						else:
-							ordering += "YX"
+				if config[AXIS_ORDER] == AXIS_ORDERING.RAW:
+					if raw_rotation_values: # Could be that we don't have any rotation.
+						rotation = Basis(raw_rotation_values)
+				else:
+					if config[AXIS_ORDER] == AXIS_ORDERING.NATIVE:
+						# This is a bit messy.  'Native' rotation order means we apply the rotation in the order we read it.
+						# That means picking the minimum index of XYZ and applying it, then the next index, etc.
+						if rotationXIndex < rotationYIndex and rotationXIndex < rotationZIndex:
+							ordering += "X"
+							if rotationYIndex < rotationZIndex:
+								ordering += "YZ"
+							else:
+								ordering += "ZY"
+						elif rotationYIndex < rotationXIndex and rotationYIndex < rotationZIndex:
+							ordering += "Y"
+							if rotationXIndex < rotationZIndex:
+								ordering += "XZ"
+							else:
+								ordering += "ZX"
+						else: # Z is first.
+							ordering += "Z"
+							if rotationXIndex < rotationYIndex:
+								ordering += "XY"
+							else:
+								ordering += "YX"
+					else:
+						ordering = AXIS_ORDERING_NAMES[config[AXIS_ORDER]]
+					# Potentially flip order.
 					if config[REVERSE_AXIS_ORDER]:
 						var new_order:String = ""
 						for axis in ordering:
 							new_order = axis + new_order
+						print("Old order: ", ordering, ". New order: ", new_order)
 						ordering = new_order
-				else:
-					ordering = AXIS_ORDERING_NAMES[config[AXIS_ORDER]]
-				# Apply the rotations in the right order.
-				for axis in ordering:
-					rotation = _apply_rotation(rotation, raw_rotation_values.x, raw_rotation_values.y, raw_rotation_values.z, axis)
+					# Apply the rotations in the right order.
+					for axis in ordering:
+						rotation = _apply_rotation(rotation, raw_rotation_values.x, raw_rotation_values.y, raw_rotation_values.z, axis)
 			
 			print("Transformed Y rotation euler: ", rotation.get_euler().y)
 			
