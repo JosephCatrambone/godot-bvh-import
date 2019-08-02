@@ -270,7 +270,7 @@ func parse_motion(root:String, bone_names:Array, bone_index_map:Dictionary, bone
 	var rig_name = config[RIG_NAME]
 	
 	var num_frames = 0
-	var timestep = 1.0/60.0
+	var timestep = 0.033333
 	var read_header = true
 	while read_header:
 		read_header = false
@@ -284,6 +284,7 @@ func parse_motion(root:String, bone_names:Array, bone_index_map:Dictionary, bone
 			read_header = true
 	
 	var animation:Animation = Animation.new()
+	animation.length = num_frames * timestep
 	
 	# Set the length of the animation to match the BVH length.
 	# Create new tracks.
