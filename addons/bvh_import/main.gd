@@ -294,13 +294,13 @@ func parse_motion(root:String, bone_names:Array, bone_index_map:Dictionary, bone
 			var rotationYIndex = bone_index_map[bone_name][channel_index_map[YROT]]
 			var rotationZIndex = bone_index_map[bone_name][channel_index_map[ZROT]]
 			
-			var translation = Vector3()
+			var translation = -Vector3(bone_offsets[bone_name][0], bone_offsets[bone_name][1], bone_offsets[bone_name][2])
 			if transformXIndex != -1:
-				translation.x = values[transformXIndex]
+				translation.x += values[transformXIndex]
 			if transformYIndex != -1:
-				translation.y = values[transformYIndex]
+				translation.y += values[transformYIndex]
 			if transformZIndex != -1:
-				translation.z = values[transformZIndex]
+				translation.z += values[transformZIndex]
 			
 			var raw_rotation_values:Vector3 = Vector3(0, 0, 0)
 			# NOTE: Not actually anything like axis-angle, just a convenient placeholder for a triple.
@@ -367,12 +367,12 @@ func _apply_rotation(rotation:Quat, x:float, y:float, z:float, axis:String) -> Q
 	# Godot: +X right, -Z forward, +Y up.
 	var up_axis:Vector3 = AXIS_OPTION_VECTORS[config[UP_VECTOR]]
 	var forward_axis:Vector3 = AXIS_OPTION_VECTORS[config[FORWARD_VECTOR]]
-	var right_axis:Vector3 = up_axis.cross(forward_axis)
+	var right_axis:Vector3 = forward_axis.cross(up_axis)
 	
 	if x != 0.0 and axis == "X":
-		rotation *= Quat(right_axis, deg2rad(x))
+		rotation *= Quat(Vector3(1, 0, 0), deg2rad(x))
 	elif y != 0.0 and axis == "Y":
-		rotation *= Quat(up_axis, deg2rad(y))
+		rotation *= Quat(Vector3(0, 1, 0), deg2rad(y))
 	elif z != 0.0 and axis == "Z":
-		rotation *= Quat(forward_axis, deg2rad(z))
+		rotation *= Quat(Vector3(0, 0, -1), deg2rad(z))
 	return rotation
