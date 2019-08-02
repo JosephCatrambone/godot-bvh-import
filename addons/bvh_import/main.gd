@@ -15,8 +15,15 @@ var show_tweaks_toggle:Button
 var import_tweaks_group:VBoxContainer
 var axis_ordering_dropdown:OptionButton
 var reverse_axis_order:CheckBox
-var forward_axis_dropdown:OptionButton
-var up_axis_dropdown:OptionButton
+var x_axis_remap_x:SpinBox # TODO: This should be compacted.  Easy enough to do with indices.
+var x_axis_remap_y:SpinBox
+var x_axis_remap_z:SpinBox
+var y_axis_remap_x:SpinBox
+var y_axis_remap_y:SpinBox
+var y_axis_remap_z:SpinBox
+var z_axis_remap_x:SpinBox
+var z_axis_remap_y:SpinBox
+var z_axis_remap_z:SpinBox
 # Import buttons
 var import_button:Button
 var reimport_button:Button
@@ -48,11 +55,10 @@ var AXIS_ORDERING_NAMES = ["Native", "XYZ", "XZY", "YXZ", "YZX", "ZXY", "ZYX"]
 enum AXIS_ORDERING { NATIVE = 0, XYZ, XZY, YXZ, YZX, ZXY, ZYX }
 const AXIS_ORDER = "force_axis_ordering"
 const REVERSE_AXIS_ORDER = "reverse_native_order"
-enum AXIS_OPTIONS { PX, PY, PZ, NX, NY, NZ }
-var AXIS_OPTION_NAMES = ["+X", "+Y", "+Z", "-X", "-Y", "-Z"]
-var AXIS_OPTION_VECTORS = [Vector3(+1, 0, 0), Vector3(0, +1, 0), Vector3(0, 0, +1), Vector3(-1, 0, 0), Vector3(0, -1, 0), Vector3(0, 0, -1)]
 const FORWARD_VECTOR = "forward_vector"
 const UP_VECTOR = "up_vector"
+const RIGHT_VECTOR = "right_vector"
+const IGNORE_OFFSETS = "ignore_offsets"
 
 # GX1 -> +X is right.
 # GZ1 -> +Z is up.
@@ -79,13 +85,15 @@ func _ready():
 	axis_ordering_dropdown.select(AXIS_ORDERING.NATIVE)
 	reverse_axis_order = get_node("ImportTweaks/ReverseAxisOrder")
 	
-	forward_axis_dropdown = get_node("ImportTweaks/ForwardAxisOption")
-	up_axis_dropdown = get_node("ImportTweaks/UpAxisOption")
-	for i in AXIS_OPTIONS.values():
-		forward_axis_dropdown.add_item(AXIS_OPTION_NAMES[i], i)
-		up_axis_dropdown.add_item(AXIS_OPTION_NAMES[i], i)
-	forward_axis_dropdown.select(AXIS_OPTIONS.NZ)
-	up_axis_dropdown.select(AXIS_OPTIONS.PY)
+	x_axis_remap_x = get_node("ImportTweaks/RightAxisOption/x")
+	x_axis_remap_y = get_node("ImportTweaks/RightAxisOption/y")
+	x_axis_remap_z = get_node("ImportTweaks/RightAxisOption/z")
+	y_axis_remap_x = get_node("ImportTweaks/UpAxisOption/x")
+	y_axis_remap_y = get_node("ImportTweaks/UpAxisOption/y")
+	y_axis_remap_z = get_node("ImportTweaks/UpAxisOption/z")
+	z_axis_remap_x = get_node("ImportTweaks/ForwardAxisOption/x")
+	z_axis_remap_y = get_node("ImportTweaks/ForwardAxisOption/y")
+	z_axis_remap_z = get_node("ImportTweaks/ForwardAxisOption/z")
 	
 	import_button = get_node("ImportButton")
 	import_button.connect("pressed", self, "_import")
@@ -105,8 +113,10 @@ func get_config_data() -> Dictionary:
 	config[NEW_ANIM_NAME] = animation_name_input.text
 	config[AXIS_ORDER] = axis_ordering_dropdown.selected
 	config[REVERSE_AXIS_ORDER] = reverse_axis_order.pressed
-	config[FORWARD_VECTOR] = forward_axis_dropdown.selected
-	config[UP_VECTOR] = up_axis_dropdown.selected
+	config[RIGHT_VECTOR] = Vector3(x_axis_remap_x.value, x_axis_remap_y.value, x_axis_remap_z.value)
+	config[UP_VECTOR] = Vector3(y_axis_remap_x.value, y_axis_remap_y.value, y_axis_remap_z.value)
+	config[FORWARD_VECTOR] = Vector3(z_axis_remap_x.value, z_axis_remap_y.value, z_axis_remap_z.value)
+	config[IGNORE_OFFSETS] = false
 	return config
 
 func _import():
@@ -208,7 +218,7 @@ func parse_hierarchy(text:Array):# -> [String, Array, Dictionary, Dictionary]:
 	# returning a list of the order of the element names.
 	# We don't apply any bone remapping in here.
 	var bone_names:Array = Array()
-	var bone_index_map:Dictionary = Dictionary() # Maps from bone name to array of [index of x trans (or -1), y trans, z trans, x rot, y rot, z rot]
+	var bone_index_map:Dictionary = Dictionary() # Maps from bone name to a map of *POS -> value.
 	var bone_offsets:Dictionary = Dictionary()
 		
 	# NOTE: We are not keeping the structure of the hierarchy because we don't need it.
@@ -223,24 +233,27 @@ func parse_hierarchy(text:Array):# -> [String, Array, Dictionary, Dictionary]:
 		if line.begins_with("ROOT"):
 			current_bone = line.split(" ", false)[1]
 			bone_names.append(current_bone)
-			bone_index_map[current_bone] = [-1, -1, -1, -1, -1, -1] # -1 means not in collection.
-			bone_offsets[current_bone] = [0, 0, 0]
+			bone_index_map[current_bone] = Dictionary()
+			bone_offsets[current_bone] = Vector3()
 			root_bone = current_bone
 		elif line.begins_with("CHANNELS"):
 			var data:Array = line.split(" ", false)
 			var num_channels = data[1].to_int()
 			for c in range(num_channels):
 				var chan = data[2+c]
-				bone_index_map[current_bone][channel_index_map[chan]] = data_index
+				bone_index_map[current_bone][chan] = data_index
 				data_index += 1
 				#print("Channel: ", chan, " -> Idx: ", data_index)
 		elif line.begins_with("JOINT"):
 			current_bone = line.split(" ", false)[1]
 			bone_names.append(current_bone)
-			bone_index_map[current_bone] = [-1, -1, -1, -1, -1, -1] # -1 means not in collection.
+			bone_index_map[current_bone] = Dictionary() # -1 means not in collection.
+			bone_offsets[current_bone] = Vector3()
 		elif line.begins_with("OFFSET"):
 			var data:Array = line.split(" ", false)
-			bone_offsets[current_bone] = [data[1].to_float(), data[2].to_float(), data[3].to_float()]
+			bone_offsets[current_bone].x = data[1].to_float()
+			bone_offsets[current_bone].y = data[2].to_float()
+			bone_offsets[current_bone].z = data[3].to_float()
 	
 	return [root_bone, bone_names, bone_index_map, bone_offsets]
 
@@ -250,9 +263,9 @@ func parse_motion(root:String, bone_names:Array, bone_index_map:Dictionary, bone
 		
 	# Precompute our axises.
 	# -Z forward, +Y up, +x right
-	var up_axis:Vector3 = AXIS_OPTION_VECTORS[config[UP_VECTOR]] # Locally, +Y
-	var forward_axis:Vector3 = AXIS_OPTION_VECTORS[config[FORWARD_VECTOR]]
-	var right_axis:Vector3 = up_axis.cross(forward_axis) # Locally +X
+	var up_axis:Vector3 = config[UP_VECTOR] # Locally, +Y
+	var forward_axis:Vector3 = config[FORWARD_VECTOR]
+	var right_axis:Vector3 = config[RIGHT_VECTOR] # Locally +X
 	
 	var rig_name = config[RIG_NAME]
 	
@@ -286,39 +299,47 @@ func parse_motion(root:String, bone_names:Array, bone_index_map:Dictionary, bone
 			var track_index = element_track_index_map[i]
 			var bone_name = bone_names[i]
 			
-			# TODO: I think the channel index map is superfluous.
-			var transformXIndex = bone_index_map[bone_name][channel_index_map[XPOS]]
-			var transformYIndex = bone_index_map[bone_name][channel_index_map[YPOS]]
-			var transformZIndex = bone_index_map[bone_name][channel_index_map[ZPOS]]
-			var rotationXIndex = bone_index_map[bone_name][channel_index_map[XROT]]
-			var rotationYIndex = bone_index_map[bone_name][channel_index_map[YROT]]
-			var rotationZIndex = bone_index_map[bone_name][channel_index_map[ZROT]]
+			# Use negative one so that if we forget a check we fail early and get an index error, rather than bad data.
+			var transformXIndex = bone_index_map[bone_name].get(XPOS, -1)
+			var transformYIndex = bone_index_map[bone_name].get(YPOS, -1)
+			var transformZIndex = bone_index_map[bone_name].get(ZPOS, -1)
+			var rotationXIndex = bone_index_map[bone_name].get(XROT, -1)
+			var rotationYIndex = bone_index_map[bone_name].get(YROT, -1)
+			var rotationZIndex = bone_index_map[bone_name].get(ZROT, -1)
 			
-			var translation = -Vector3(bone_offsets[bone_name][0], bone_offsets[bone_name][1], bone_offsets[bone_name][2])
-			if transformXIndex != -1:
-				translation.x += values[transformXIndex]
-			if transformYIndex != -1:
-				translation.y += values[transformYIndex]
-			if transformZIndex != -1:
-				translation.z += values[transformZIndex]
+			var translation = Vector3()
+			if not config[IGNORE_OFFSETS]: # These are the _starting_ offsets, not the translations.
+				translation = -Vector3( # Note the negation.
+					bone_offsets[bone_name].x,
+					bone_offsets[bone_name].y,
+					bone_offsets[bone_name].z
+				) # Clone this vector so we don't change it between steps.
+			if bone_index_map[bone_name].has(XPOS):
+				translation.x += values[bone_index_map[bone_name][XPOS]]
+			if bone_index_map[bone_name].has(YPOS):
+				translation.y += values[bone_index_map[bone_name][YPOS]]
+			if bone_index_map[bone_name].has(ZPOS):
+				translation.z += values[bone_index_map[bone_name][ZPOS]]
 			
 			var raw_rotation_values:Vector3 = Vector3(0, 0, 0)
-			# NOTE: Not actually anything like axis-angle, just a convenient placeholder for a triple.
-			if rotationXIndex != -1:
-				raw_rotation_values.x = values[rotationXIndex]
-			if rotationYIndex != -1:
-				raw_rotation_values.y = values[rotationYIndex]
-			if rotationZIndex != -1:
-				raw_rotation_values.z = values[rotationZIndex]
+			# NOTE: raw_rot is Not actually anything like axis-angle, just a convenient placeholder for a triple.
+			if bone_index_map[bone_name].has(XROT):
+				raw_rotation_values.x = values[bone_index_map[bone_name][XROT]]
+			if bone_index_map[bone_name].has(YROT):
+				raw_rotation_values.y = values[bone_index_map[bone_name][YROT]]
+			if bone_index_map[bone_name].has(ZROT):
+				raw_rotation_values.z = values[bone_index_map[bone_name][ZROT]]
 			
 			# Godot uses Right +X, Up +Y, Forward -Z
 			var rotation:Quat = Quat.IDENTITY
 			
 			# Apply joint rotations.
-			if rotationXIndex != -1 and rotationYIndex != -1 and rotationZIndex != -1:
+			if not bone_index_map[bone_name].has(XROT) and bone_index_map[bone_name].has(YROT) and bone_index_map[bone_name].has(ZROT):
+				print("Bone ", bone_name, " is missing rotation information.")
+			else:
 				var ordering:String = ""
 				if config[AXIS_ORDER] == AXIS_ORDERING.NATIVE:
-					# This is a bit messy.  'Native' rotation order means we apply the rotation in the order we read it.
+					# 'Native' rotation order means we apply the rotation in the order we read it.
 					# That means picking the minimum index of XYZ and applying it, then the next index, etc.
 					if rotationXIndex < rotationYIndex and rotationXIndex < rotationZIndex:
 						ordering += "X"
@@ -340,7 +361,8 @@ func parse_motion(root:String, bone_names:Array, bone_index_map:Dictionary, bone
 							ordering += "YX"
 				else:
 					ordering = AXIS_ORDERING_NAMES[config[AXIS_ORDER]]
-				# Potentially flip order.
+				# Potentially flip order.  This is the difference from applying left-to-right and right-to-left.
+				# TODO: rotation.transpose?
 				if config[REVERSE_AXIS_ORDER]:
 					var new_order:String = ""
 					for axis in ordering:
@@ -351,9 +373,6 @@ func parse_motion(root:String, bone_names:Array, bone_index_map:Dictionary, bone
 					rotation = _apply_rotation(rotation, raw_rotation_values.x, raw_rotation_values.y, raw_rotation_values.z, axis)
 			#rotation = rotation * animation_basis.inverse()
 			
-			#metarig:spine.006
-			#animation.track_set_path(track_index, "Enemy:position.x")
-			#animation.track_insert_key(track_index, step*timestep, values[i])
 			animation.track_set_path(track_index, rig_name + ":" + bone_name)
 			animation.transform_track_insert_key(track_index, step*timestep, translation, rotation, Vector3(1, 1, 1))
 			print(bone_name, " ", translation.x, " ", translation.y, " ", translation.z, " ", rotation.x, " ", rotation.y, " ", rotation.z, " ", rotation.w)
@@ -364,15 +383,11 @@ func parse_motion(root:String, bone_names:Array, bone_index_map:Dictionary, bone
 func _apply_rotation(rotation:Quat, x:float, y:float, z:float, axis:String) -> Quat:
 	var config = get_config_data()
 	
-	# Godot: +X right, -Z forward, +Y up.
-	var up_axis:Vector3 = AXIS_OPTION_VECTORS[config[UP_VECTOR]]
-	var forward_axis:Vector3 = AXIS_OPTION_VECTORS[config[FORWARD_VECTOR]]
-	var right_axis:Vector3 = forward_axis.cross(up_axis)
-	
-	if x != 0.0 and axis == "X":
-		rotation *= Quat(Vector3(1, 0, 0), deg2rad(x))
-	elif y != 0.0 and axis == "Y":
-		rotation *= Quat(Vector3(0, 1, 0), deg2rad(y))
-	elif z != 0.0 and axis == "Z":
-		rotation *= Quat(Vector3(0, 0, -1), deg2rad(z))
+	# Godot: +X right, -Z forward, +Y up.	
+	if axis == "X":
+		rotation *= Quat(config[RIGHT_VECTOR], deg2rad(x))
+	elif axis == "Y":
+		rotation *= Quat(config[UP_VECTOR], deg2rad(y))
+	elif axis == "Z":
+		rotation *= Quat(config[FORWARD_VECTOR], deg2rad(z))
 	return rotation
