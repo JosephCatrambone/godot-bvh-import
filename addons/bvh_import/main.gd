@@ -253,7 +253,6 @@ func parse_motion(root:String, bone_names:Array, bone_index_map:Dictionary, bone
 	var up_axis:Vector3 = AXIS_OPTION_VECTORS[config[UP_VECTOR]] # Locally, +Y
 	var forward_axis:Vector3 = AXIS_OPTION_VECTORS[config[FORWARD_VECTOR]]
 	var right_axis:Vector3 = up_axis.cross(forward_axis) # Locally +X
-	var animation_basis:Basis = Basis(right_axis, up_axis, forward_axis)
 	
 	var rig_name = config[RIG_NAME]
 	
@@ -302,9 +301,7 @@ func parse_motion(root:String, bone_names:Array, bone_index_map:Dictionary, bone
 				translation.y = values[transformYIndex]
 			if transformZIndex != -1:
 				translation.z = values[transformZIndex]
-			translation = animation_basis.xform_inv(translation)
 			
-			print(step, " ", bone_name)
 			var raw_rotation_values:Vector3 = Vector3(0, 0, 0)
 			# NOTE: Not actually anything like axis-angle, just a convenient placeholder for a triple.
 			if rotationXIndex != -1:
@@ -313,10 +310,9 @@ func parse_motion(root:String, bone_names:Array, bone_index_map:Dictionary, bone
 				raw_rotation_values.y = values[rotationYIndex]
 			if rotationZIndex != -1:
 				raw_rotation_values.z = values[rotationZIndex]
-			print("Starting Z rotation: ", raw_rotation_values.z)
 			
 			# Godot uses Right +X, Up +Y, Forward -Z
-			var rotation:Basis = Basis()
+			var rotation:Quat = Quat.IDENTITY
 			
 			# Apply joint rotations.
 			if rotationXIndex != -1 and rotationYIndex != -1 and rotationZIndex != -1:
@@ -349,25 +345,23 @@ func parse_motion(root:String, bone_names:Array, bone_index_map:Dictionary, bone
 					var new_order:String = ""
 					for axis in ordering:
 						new_order = axis + new_order
-					print("Old order: ", ordering, ". New order: ", new_order)
 					ordering = new_order
 				# Apply the rotations in the right order.
 				for axis in ordering:
 					rotation = _apply_rotation(rotation, raw_rotation_values.x, raw_rotation_values.y, raw_rotation_values.z, axis)
-			rotation = rotation * animation_basis.inverse()
+			#rotation = rotation * animation_basis.inverse()
 			
 			#metarig:spine.006
 			#animation.track_set_path(track_index, "Enemy:position.x")
 			#animation.track_insert_key(track_index, step*timestep, values[i])
 			animation.track_set_path(track_index, rig_name + ":" + bone_name)
-			animation.transform_track_insert_key(track_index, step*timestep, translation, rotation.get_rotation_quat(), Vector3(1, 1, 1))
-			var quat = rotation.get_rotation_quat()
-			print(bone_name, " ", translation.x, " ", translation.y, " ", translation.z, " ", quat.x, " ", quat.y, " ", quat.z, " ", quat.w)
+			animation.transform_track_insert_key(track_index, step*timestep, translation, rotation, Vector3(1, 1, 1))
+			print(bone_name, " ", translation.x, " ", translation.y, " ", translation.z, " ", rotation.x, " ", rotation.y, " ", rotation.z, " ", rotation.w)
 		step += 1
 	
 	return animation
 
-func _apply_rotation(rotation:Basis, x:float, y:float, z:float, axis:String) -> Basis:
+func _apply_rotation(rotation:Quat, x:float, y:float, z:float, axis:String) -> Quat:
 	var config = get_config_data()
 	
 	# Godot: +X right, -Z forward, +Y up.
@@ -376,9 +370,9 @@ func _apply_rotation(rotation:Basis, x:float, y:float, z:float, axis:String) -> 
 	var right_axis:Vector3 = up_axis.cross(forward_axis)
 	
 	if x != 0.0 and axis == "X":
-		rotation = rotation.rotated(right_axis, deg2rad(x))
+		rotation *= Quat(right_axis, deg2rad(x))
 	elif y != 0.0 and axis == "Y":
-		rotation = rotation.rotated(up_axis, deg2rad(y))
+		rotation *= Quat(up_axis, deg2rad(y))
 	elif z != 0.0 and axis == "Z":
-		rotation = rotation.rotated(forward_axis, deg2rad(z))
-	return rotation.orthonormalized()
+		rotation *= Quat(forward_axis, deg2rad(z))
+	return rotation
