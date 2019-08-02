@@ -77,86 +77,78 @@ margin_bottom = 186.0
 text = "Show Import Tweaks"
 
 [node name="ImportTweaks" type="VBoxContainer" parent="."]
-visible = false
 margin_top = 190.0
 margin_right = 1024.0
-margin_bottom = 382.0
-
-[node name="FlipXInput" type="CheckBox" parent="ImportTweaks"]
-margin_right = 1024.0
-margin_bottom = 24.0
-text = "Flip X Rotation"
-
-[node name="FlipYInput" type="CheckBox" parent="ImportTweaks"]
-margin_top = 28.0
-margin_right = 1024.0
-margin_bottom = 52.0
-text = "Flip Y Rotation"
-
-[node name="FlipZInput" type="CheckBox" parent="ImportTweaks"]
-margin_top = 56.0
-margin_right = 1024.0
-margin_bottom = 80.0
-text = "Flip Z Rotation"
+margin_bottom = 340.0
 
 [node name="AxisLabel" type="Label" parent="ImportTweaks"]
-margin_top = 84.0
 margin_right = 1024.0
-margin_bottom = 98.0
+margin_bottom = 14.0
 text = "Axis Ordering:"
 
 [node name="AxisOrderingOption" type="OptionButton" parent="ImportTweaks"]
-margin_top = 102.0
+margin_top = 18.0
 margin_right = 1024.0
-margin_bottom = 122.0
+margin_bottom = 38.0
 group = SubResource( 1 )
 text = "Axis Ordering"
 
 [node name="ReverseAxisOrder" type="CheckBox" parent="ImportTweaks"]
-margin_top = 126.0
+margin_top = 42.0
 margin_right = 1024.0
-margin_bottom = 150.0
+margin_bottom = 66.0
 text = "Reverse Native Axis Order"
 
-[node name="CoordinateSystemLabel" type="Label" parent="ImportTweaks"]
-margin_top = 154.0
+[node name="ForwardAxisLabel" type="Label" parent="ImportTweaks"]
+margin_top = 70.0
 margin_right = 1024.0
-margin_bottom = 168.0
-text = "Source Coordinate System:"
+margin_bottom = 84.0
+text = "Forward Vector:"
 
-[node name="SourceCoordinateSystem" type="OptionButton" parent="ImportTweaks"]
-margin_top = 172.0
+[node name="ForwardAxisOption" type="OptionButton" parent="ImportTweaks"]
+margin_top = 88.0
 margin_right = 1024.0
-margin_bottom = 192.0
+margin_bottom = 108.0
 group = SubResource( 1 )
-text = "Source Coordinate System"
+
+[node name="UpAxisLabel" type="Label" parent="ImportTweaks"]
+margin_top = 112.0
+margin_right = 1024.0
+margin_bottom = 126.0
+text = "Up Vector:"
+
+[node name="UpAxisOption" type="OptionButton" parent="ImportTweaks"]
+margin_top = 130.0
+margin_right = 1024.0
+margin_bottom = 150.0
+group = SubResource( 1 )
 
 [node name="HSeparator2" type="HSeparator" parent="."]
-margin_top = 190.0
+margin_top = 344.0
 margin_right = 1024.0
-margin_bottom = 194.0
+margin_bottom = 348.0
 
 [node name="ShowBoneRetargeting" type="CheckButton" parent="."]
-margin_top = 198.0
+margin_top = 352.0
 margin_right = 1024.0
-margin_bottom = 238.0
+margin_bottom = 392.0
 disabled = true
 text = "Show Bone Retargeting Options"
 
 [node name="HSeparator3" type="HSeparator" parent="."]
-margin_top = 242.0
+margin_top = 396.0
 margin_right = 1024.0
-margin_bottom = 246.0
+margin_bottom = 400.0
 
 [node name="ImportButton" type="Button" parent="."]
-margin_top = 250.0
+margin_top = 404.0
 margin_right = 1024.0
-margin_bottom = 270.0
+margin_bottom = 424.0
 text = "Import"
 
 [node name="ReimportButton" type="Button" parent="."]
-margin_top = 274.0
+margin_top = 428.0
 margin_right = 1024.0
-margin_bottom = 294.0
+margin_bottom = 448.0
 disabled = true
 text = "Reimport"
