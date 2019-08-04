@@ -24,12 +24,12 @@ filters = PoolStringArray( "*.bvh ; Biovision Hierarchy", "*.bvh ; Biovision Hie
 current_dir = "E:/GodotProjects/godot-bvh-import"
 current_path = "E:/GodotProjects/godot-bvh-import/"
 
-[node name="ArmatureNameLabel" type="Label" parent="."]
+[node name="SkeletonPathLabel" type="Label" parent="."]
 margin_right = 1024.0
 margin_bottom = 14.0
-text = "Armature Name:"
+text = "Skeleton Path:"
 
-[node name="ArmatureNameInput" type="LineEdit" parent="."]
+[node name="SkeletonPathInput" type="LineEdit" parent="."]
 margin_top = 18.0
 margin_right = 1024.0
 margin_bottom = 42.0
@@ -106,7 +106,6 @@ margin_bottom = 84.0
 text = "Remap Z / Forward Vector:"
 
 [node name="ForwardAxisOption" type="HBoxContainer" parent="ImportTweaks"]
-editor/display_folded = true
 margin_top = 88.0
 margin_right = 1024.0
 margin_bottom = 112.0
@@ -130,7 +129,7 @@ margin_right = 230.0
 margin_bottom = 24.0
 min_value = -1.0
 max_value = 1.0
-value = -1.0
+value = 1.0
 
 [node name="UpAxisLabel" type="Label" parent="ImportTweaks"]
 margin_top = 116.0

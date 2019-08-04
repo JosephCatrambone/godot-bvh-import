@@ -7,7 +7,7 @@ var last_filename:String = ""
 # Basic interface:
 var editor_interface:EditorInterface
 var open_file_dialog:FileDialog
-var armature_name_input:LineEdit
+var skeleton_path_input:LineEdit
 var animation_player_name_input:LineEdit
 var animation_name_input:LineEdit
 # Tweaks
@@ -48,7 +48,7 @@ var channel_index_map = {
 	ZROT: 5
 }
 # Constants we use in our config.
-const RIG_NAME = "rig_name"
+const SKELETON_PATH = "skeleton_path"
 const ANIM_PLAYER_NAME = "animation_player_name"
 const NEW_ANIM_NAME = "new_animation_name"
 var AXIS_ORDERING_NAMES = ["Native", "XYZ", "XZY", "YXZ", "YZX", "ZXY", "ZYX"]
@@ -71,7 +71,7 @@ func _ready():
 	open_file_dialog.connect("file_selected", self, "_on_file_select")
 	#get_editor_interface().get_base_control().add_child(open_file_dialog)
 	
-	armature_name_input = get_node("ArmatureNameInput")
+	skeleton_path_input = get_node("SkeletonPathInput")
 	animation_player_name_input = get_node("AnimationPlayerNameInput")
 	animation_name_input = get_node("AnimationNameInput")
 	
@@ -108,7 +108,7 @@ func get_config_data() -> Dictionary:
 	# Reads from our UI and returns a dictionary of String -> Value.
 	# This will do all of the node reading and accessing, next to ready.
 	var config = Dictionary()
-	config[RIG_NAME] = armature_name_input.text
+	config[SKELETON_PATH] = skeleton_path_input.text
 	config[ANIM_PLAYER_NAME] = animation_player_name_input.text
 	config[NEW_ANIM_NAME] = animation_name_input.text
 	config[AXIS_ORDER] = axis_ordering_dropdown.selected
@@ -267,7 +267,7 @@ func parse_motion(root:String, bone_names:Array, bone_index_map:Dictionary, bone
 	var forward_axis:Vector3 = config[FORWARD_VECTOR]
 	var right_axis:Vector3 = config[RIGHT_VECTOR] # Locally +X
 	
-	var rig_name = config[RIG_NAME]
+	var rig_name = config[SKELETON_PATH]
 	
 	var num_frames = 0
 	var timestep = 0.033333
@@ -284,13 +284,16 @@ func parse_motion(root:String, bone_names:Array, bone_index_map:Dictionary, bone
 			read_header = true
 	
 	var animation:Animation = Animation.new()
-	animation.length = num_frames * timestep
 	
 	# Set the length of the animation to match the BVH length.
+	animation.length = num_frames * timestep
+	
 	# Create new tracks.
 	var element_track_index_map:Dictionary = Dictionary()
 	for i in range(len(bone_names)):
 		var track_index = animation.add_track(Animation.TYPE_TRANSFORM)
+		# Note: Hitting the keyframe button on the pose data will insert a value track with bones/##/pose,
+		# but this doesn't appear to work for the replay.  Use a transform track + transforms.
 		element_track_index_map[i] = track_index
 	
 	var step:int = 0
