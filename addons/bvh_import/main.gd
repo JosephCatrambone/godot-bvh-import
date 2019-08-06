@@ -239,11 +239,12 @@ func parse_hierarchy(text:Array):# -> [String, Array, Dictionary, Dictionary]:
 		elif line.begins_with("CHANNELS"):
 			var data:Array = line.split(" ", false)
 			var num_channels = data[1].to_int()
+			print("Reading " + str(num_channels) + " data channel(s) for bone " + current_bone)
 			for c in range(num_channels):
 				var chan = data[2+c]
 				bone_index_map[current_bone][chan] = data_index
 				data_index += 1
-				#print("Channel: ", chan, " -> Idx: ", data_index)
+				print(current_bone + " " + chan + ": " + str(data_index))
 		elif line.begins_with("JOINT"):
 			current_bone = line.split(" ", false)[1]
 			bone_names.append(current_bone)
@@ -293,15 +294,15 @@ func parse_motion(root:String, bone_names:Array, bone_index_map:Dictionary, bone
 	for i in range(len(bone_names)):
 		var track_index = animation.add_track(Animation.TYPE_TRANSFORM)
 		# Note: Hitting the keyframe button on the pose data will insert a value track with bones/##/pose,
-		# but this doesn't appear to work for the replay.  Use a transform track + transforms.
+		# but this doesn't appear to work for the replay.  Use a transform track instead of Animation.TYPE_VALUE.
 		element_track_index_map[i] = track_index
 	
 	var step:int = 0
 	for line in text:
 		var values = line.strip_edges().split_floats(" ", false)
-		for i in range(len(bone_names)):
-			var track_index = element_track_index_map[i]
-			var bone_name = bone_names[i]
+		for bone_index in range(len(bone_names)):
+			var track_index = element_track_index_map[bone_index]
+			var bone_name = bone_names[bone_index]
 			
 			# Use negative one so that if we forget a check we fail early and get an index error, rather than bad data.
 			var transformXIndex = bone_index_map[bone_name].get(XPOS, -1)
@@ -325,6 +326,8 @@ func parse_motion(root:String, bone_names:Array, bone_index_map:Dictionary, bone
 			if bone_index_map[bone_name].has(ZPOS):
 				translation.z += values[bone_index_map[bone_name][ZPOS]]
 			
+			# Godot: +X right, -Z forward, +Y up.	
+			var rotation:Quat = Basis(config[RIGHT_VECTOR], config[UP_VECTOR], config[FORWARD_VECTOR]).get_rotation_quat()
 			var raw_rotation_values:Vector3 = Vector3(0, 0, 0)
 			# NOTE: raw_rot is Not actually anything like axis-angle, just a convenient placeholder for a triple.
 			if bone_index_map[bone_name].has(XROT):
@@ -333,9 +336,6 @@ func parse_motion(root:String, bone_names:Array, bone_index_map:Dictionary, bone
 				raw_rotation_values.y = values[bone_index_map[bone_name][YROT]]
 			if bone_index_map[bone_name].has(ZROT):
 				raw_rotation_values.z = values[bone_index_map[bone_name][ZROT]]
-			
-			# Godot uses Right +X, Up +Y, Forward -Z
-			var rotation:Quat = Quat.IDENTITY
 			
 			# Apply joint rotations.
 			if not bone_index_map[bone_name].has(XROT) and bone_index_map[bone_name].has(YROT) and bone_index_map[bone_name].has(ZROT):
@@ -375,11 +375,16 @@ func parse_motion(root:String, bone_names:Array, bone_index_map:Dictionary, bone
 				# Apply the rotations in the right order.
 				for axis in ordering:
 					rotation = _apply_rotation(rotation, raw_rotation_values.x, raw_rotation_values.y, raw_rotation_values.z, axis)
-			#rotation = rotation * animation_basis.inverse()
+			# Doesn't work: transform = Transform(Basis(raw_rotation_values), translation)
+			# Doesn't exist: Quat(raw_rotation_values)
+			# Doesn't work: rotation = _euler_to_quaternion(raw_rotation_values.z, raw_rotation_values.y, raw_rotation_values.x)
 			
 			animation.track_set_path(track_index, rig_name + ":" + bone_name)
 			animation.transform_track_insert_key(track_index, step*timestep, translation, rotation, Vector3(1, 1, 1))
-			print(bone_name, " ", translation.x, " ", translation.y, " ", translation.z, " ", rotation.x, " ", rotation.y, " ", rotation.z, " ", rotation.w)
+			#animation.transform_track_insert_key(track_index, step*timestep, translation, Quat(raw_rotation_values.x, raw_rotation_values.y, raw_rotation_values.z, 0), Vector3(1, 1, 1))
+			#animation.transform_track_insert_key(track_index, step*timestep, transform.origin, transform.basis.get_rotation_quat(), Vector3(1, 1, 1))
+			#animation.track_set_path(track_index, rig_name + ":" + "bones/" + str(bone_index) + "/pose")
+			#animation.track_insert_key(track_index, step*timestep, transform)
 		step += 1
 	
 	return animation
@@ -389,9 +394,29 @@ func _apply_rotation(rotation:Quat, x:float, y:float, z:float, axis:String) -> Q
 	
 	# Godot: +X right, -Z forward, +Y up.	
 	if axis == "X":
-		rotation *= Quat(config[RIGHT_VECTOR], deg2rad(x))
+		#rotation = rotation.rotated(config[RIGHT_VECTOR], deg2rad(x))
+		#rotation.set_axis_angle(config[RIGHT_VECTOR], deg2rad(x))
+		rotation *= Quat(Vector3(1, 0, 0), deg2rad(x))
 	elif axis == "Y":
-		rotation *= Quat(config[UP_VECTOR], deg2rad(y))
+		#rotation = rotation.rotated(config[UP_VECTOR], deg2rad(y))
+		#rotation.set_axis_angle(config[UP_VECTOR], deg2rad(y))
+		rotation *= Quat(Vector3(0, 1, 0), deg2rad(y))
 	elif axis == "Z":
-		rotation *= Quat(config[FORWARD_VECTOR], deg2rad(z))
-	return rotation
+		#rotation = rotation.rotated(config[FORWARD_VECTOR], deg2rad(z))
+		#rotation.set_axis_angle(config[FORWARD_VECTOR], deg2rad(z))
+		rotation *= Quat(Vector3(0, 0, 1), deg2rad(z))
+	return rotation.normalized()
+
+func _euler_to_quaternion(yaw:float, pitch:float, roll:float) -> Quat: # Z Y X
+	var cy = cos(yaw * 0.5)
+	var sy = sin(yaw * 0.5)
+	var cp = cos(pitch * 0.5)
+	var sp = sin(pitch * 0.5)
+	var cr = cos(roll * 0.5)
+	var sr = sin(roll * 0.5)
+	
+	var x = cy * cp * sr - sy * sp * cr
+	var y = sy * cp * sr + cy * sp * cr
+	var z = sy * cp * cr - cy * sp * sr
+	var w = cy * cp * cr + sy * sp * sr
+	return Quat(x, y, z, w)
