@@ -13,6 +13,8 @@ var animation_name_input:LineEdit
 # Tweaks
 var show_tweaks_toggle:Button
 var import_tweaks_group:VBoxContainer
+var autoscale_bvh_option:CheckBox
+var ignore_offsets_option:CheckBox
 var axis_ordering_dropdown:OptionButton
 var reverse_axis_order:CheckBox
 var x_axis_remap_x:SpinBox # TODO: This should be compacted.  Easy enough to do with indices.
@@ -80,23 +82,24 @@ func _ready():
 	
 	show_tweaks_toggle = get_node("ShowImportTweaks")
 	show_tweaks_toggle.connect("toggled", self, "toggle_tweak_display")
-	import_tweaks_group = get_node("ImportTweaks")
-	axis_ordering_dropdown = get_node("ImportTweaks/AxisOrderingOption")
+	import_tweaks_group = get_node("ImportTweaksGroup")
+	ignore_offsets_option = get_node("ImportTweaksGroup/IgnoreOffsetsOption")
+	axis_ordering_dropdown = get_node("ImportTweaksGroup/AxisOrderingOption")
 	# TODO: I would rather not have to add options here.
 	for i in AXIS_ORDERING.values():
 		axis_ordering_dropdown.add_item(AXIS_ORDERING_NAMES[i], i)
 	axis_ordering_dropdown.select(AXIS_ORDERING.NATIVE)
-	reverse_axis_order = get_node("ImportTweaks/ReverseAxisOrder")
+	reverse_axis_order = get_node("ImportTweaksGroup/ReverseAxisOrder")
 	
-	x_axis_remap_x = get_node("ImportTweaks/RightAxisOption/x")
-	x_axis_remap_y = get_node("ImportTweaks/RightAxisOption/y")
-	x_axis_remap_z = get_node("ImportTweaks/RightAxisOption/z")
-	y_axis_remap_x = get_node("ImportTweaks/UpAxisOption/x")
-	y_axis_remap_y = get_node("ImportTweaks/UpAxisOption/y")
-	y_axis_remap_z = get_node("ImportTweaks/UpAxisOption/z")
-	z_axis_remap_x = get_node("ImportTweaks/ForwardAxisOption/x")
-	z_axis_remap_y = get_node("ImportTweaks/ForwardAxisOption/y")
-	z_axis_remap_z = get_node("ImportTweaks/ForwardAxisOption/z")
+	x_axis_remap_x = get_node("ImportTweaksGroup/RightAxisOption/x")
+	x_axis_remap_y = get_node("ImportTweaksGroup/RightAxisOption/y")
+	x_axis_remap_z = get_node("ImportTweaksGroup/RightAxisOption/z")
+	y_axis_remap_x = get_node("ImportTweaksGroup/UpAxisOption/x")
+	y_axis_remap_y = get_node("ImportTweaksGroup/UpAxisOption/y")
+	y_axis_remap_z = get_node("ImportTweaksGroup/UpAxisOption/z")
+	z_axis_remap_x = get_node("ImportTweaksGroup/ForwardAxisOption/x")
+	z_axis_remap_y = get_node("ImportTweaksGroup/ForwardAxisOption/y")
+	z_axis_remap_z = get_node("ImportTweaksGroup/ForwardAxisOption/z")
 	
 	show_retargeting_button = get_node("ShowBoneRetargeting")
 	show_retargeting_button.connect("toggled", self, "toggle_bone_retargeting_display")
@@ -129,7 +132,7 @@ func get_config_data() -> Dictionary:
 	config[RIGHT_VECTOR] = Vector3(x_axis_remap_x.value, x_axis_remap_y.value, x_axis_remap_z.value)
 	config[UP_VECTOR] = Vector3(y_axis_remap_x.value, y_axis_remap_y.value, y_axis_remap_z.value)
 	config[FORWARD_VECTOR] = Vector3(z_axis_remap_x.value, z_axis_remap_y.value, z_axis_remap_z.value)
-	config[IGNORE_OFFSETS] = false
+	config[IGNORE_OFFSETS] = ignore_offsets_option.pressed
 	config[BONE_REMAPPING_JSON] = JSON.parse(remapping_json_input.text).result
 	return config
 
