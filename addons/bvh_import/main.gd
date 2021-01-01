@@ -130,7 +130,7 @@ func get_config_data() -> Dictionary:
 	config[UP_VECTOR] = Vector3(y_axis_remap_x.value, y_axis_remap_y.value, y_axis_remap_z.value)
 	config[FORWARD_VECTOR] = Vector3(z_axis_remap_x.value, z_axis_remap_y.value, z_axis_remap_z.value)
 	config[IGNORE_OFFSETS] = false
-	config[BONE_REMAPPING_JSON] = JSON.parse(remapping_json_input.text)
+	config[BONE_REMAPPING_JSON] = JSON.parse(remapping_json_input.text).result
 	return config
 
 func _import():
