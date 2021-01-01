@@ -9,8 +9,8 @@ resource_name = "AxisOrderingGroup"
 anchor_right = 1.0
 anchor_bottom = 1.0
 script = ExtResource( 1 )
-bone_remapping = {
-
+__meta__ = {
+"_edit_use_anchors_": false
 }
 
 [node name="FileDialog" type="FileDialog" parent="."]
@@ -20,9 +20,9 @@ rect_min_size = Vector2( 480, 320 )
 window_title = "Open a File"
 mode = 0
 access = 2
-filters = PoolStringArray( "*.bvh ; Biovision Hierarchy", "*.bvh ; Biovision Hierarchy" )
-current_dir = "E:/GodotProjects/godot-bvh-import"
-current_path = "E:/GodotProjects/godot-bvh-import/"
+filters = PoolStringArray( "*.bvh ; Biovision Hierarchy", "*.bvh ; Biovision Hierarchy", "*.bvh ; Biovision Hierarchy" )
+current_dir = "/GodotProjects/godot-bvh-import"
+current_path = "/GodotProjects/godot-bvh-import/"
 
 [node name="SkeletonPathLabel" type="Label" parent="."]
 margin_right = 1024.0
@@ -77,38 +77,55 @@ margin_bottom = 186.0
 text = "Show Import Tweaks"
 
 [node name="ImportTweaks" type="VBoxContainer" parent="."]
+visible = false
 margin_top = 190.0
 margin_right = 1024.0
-margin_bottom = 394.0
+margin_bottom = 450.0
+
+[node name="NormalizeBoneOffsets" type="CheckBox" parent="ImportTweaks"]
+margin_right = 1024.0
+margin_bottom = 24.0
+disabled = true
+text = "Normalize Bone Offsets"
+
+[node name="AutoscaleBVH" type="CheckBox" parent="ImportTweaks"]
+margin_top = 28.0
+margin_right = 1024.0
+margin_bottom = 52.0
+disabled = true
+text = "Autoscale BVH to Match Target Skeleton"
 
 [node name="AxisLabel" type="Label" parent="ImportTweaks"]
+margin_top = 56.0
 margin_right = 1024.0
-margin_bottom = 14.0
+margin_bottom = 70.0
 text = "Axis Ordering:"
 
 [node name="AxisOrderingOption" type="OptionButton" parent="ImportTweaks"]
-margin_top = 18.0
+margin_top = 74.0
 margin_right = 1024.0
-margin_bottom = 38.0
+margin_bottom = 94.0
 group = SubResource( 1 )
-text = "Axis Ordering"
+text = "Native"
+items = [ "Native", null, false, 0, null, "XYZ", null, false, 1, null, "XZY", null, false, 2, null, "YXZ", null, false, 3, null, "YZX", null, false, 4, null, "ZXY", null, false, 5, null, "ZYX", null, false, 6, null ]
+selected = 0
 
 [node name="ReverseAxisOrder" type="CheckBox" parent="ImportTweaks"]
-margin_top = 42.0
+margin_top = 98.0
 margin_right = 1024.0
-margin_bottom = 66.0
+margin_bottom = 122.0
 text = "Reverse Native Axis Order"
 
 [node name="ForwardAxisLabel" type="Label" parent="ImportTweaks"]
-margin_top = 70.0
+margin_top = 126.0
 margin_right = 1024.0
-margin_bottom = 84.0
+margin_bottom = 140.0
 text = "Remap Z / Forward Vector:"
 
 [node name="ForwardAxisOption" type="HBoxContainer" parent="ImportTweaks"]
-margin_top = 88.0
+margin_top = 144.0
 margin_right = 1024.0
-margin_bottom = 112.0
+margin_bottom = 168.0
 
 [node name="x" type="SpinBox" parent="ImportTweaks/ForwardAxisOption"]
 margin_right = 74.0
@@ -132,16 +149,15 @@ max_value = 1.0
 value = 1.0
 
 [node name="UpAxisLabel" type="Label" parent="ImportTweaks"]
-margin_top = 116.0
+margin_top = 172.0
 margin_right = 1024.0
-margin_bottom = 130.0
+margin_bottom = 186.0
 text = "Remap Y / Up Vector:"
 
 [node name="UpAxisOption" type="HBoxContainer" parent="ImportTweaks"]
-editor/display_folded = true
-margin_top = 134.0
+margin_top = 190.0
 margin_right = 1024.0
-margin_bottom = 158.0
+margin_bottom = 214.0
 
 [node name="x" type="SpinBox" parent="ImportTweaks/UpAxisOption"]
 margin_right = 74.0
@@ -165,15 +181,15 @@ min_value = -1.0
 max_value = 1.0
 
 [node name="RightAxisLabel" type="Label" parent="ImportTweaks"]
-margin_top = 162.0
+margin_top = 218.0
 margin_right = 1024.0
-margin_bottom = 176.0
+margin_bottom = 232.0
 text = "Remap X / Right Vector:"
 
 [node name="RightAxisOption" type="HBoxContainer" parent="ImportTweaks"]
-margin_top = 180.0
+margin_top = 236.0
 margin_right = 1024.0
-margin_bottom = 204.0
+margin_bottom = 260.0
 
 [node name="x" type="SpinBox" parent="ImportTweaks/RightAxisOption"]
 margin_right = 74.0
@@ -197,31 +213,56 @@ min_value = -1.0
 max_value = 1.0
 
 [node name="HSeparator2" type="HSeparator" parent="."]
-margin_top = 398.0
+margin_top = 190.0
 margin_right = 1024.0
-margin_bottom = 402.0
+margin_bottom = 194.0
 
 [node name="ShowBoneRetargeting" type="CheckButton" parent="."]
-margin_top = 406.0
+margin_top = 198.0
 margin_right = 1024.0
-margin_bottom = 446.0
-disabled = true
+margin_bottom = 238.0
 text = "Show Bone Retargeting Options"
 
-[node name="HSeparator3" type="HSeparator" parent="."]
-margin_top = 450.0
+[node name="BoneRetargetingGroup" type="VBoxContainer" parent="."]
+visible = false
+margin_top = 242.0
 margin_right = 1024.0
-margin_bottom = 454.0
+margin_bottom = 544.0
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="BoneMapJSONEditor" type="TextEdit" parent="BoneRetargetingGroup"]
+margin_right = 1024.0
+margin_bottom = 278.0
+size_flags_horizontal = 3
+size_flags_vertical = 3
+text = "{
+  \"bvh bone name\": \"skeleton bone name\"
+}"
+highlight_current_line = true
+syntax_highlighting = true
+show_line_numbers = true
+
+[node name="GenerateFromSkeletonButton" type="Button" parent="BoneRetargetingGroup"]
+margin_top = 282.0
+margin_right = 1024.0
+margin_bottom = 302.0
+text = "Generate from Skeleton"
+
+[node name="HSeparator3" type="HSeparator" parent="."]
+margin_top = 242.0
+margin_right = 1024.0
+margin_bottom = 246.0
 
 [node name="ImportButton" type="Button" parent="."]
-margin_top = 458.0
+margin_top = 250.0
 margin_right = 1024.0
-margin_bottom = 478.0
+margin_bottom = 270.0
 text = "Import"
 
 [node name="ReimportButton" type="Button" parent="."]
-margin_top = 482.0
+margin_top = 274.0
 margin_right = 1024.0
-margin_bottom = 502.0
+margin_bottom = 294.0
 disabled = true
 text = "Reimport"

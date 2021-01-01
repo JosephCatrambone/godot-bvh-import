@@ -24,12 +24,13 @@ var y_axis_remap_z:SpinBox
 var z_axis_remap_x:SpinBox
 var z_axis_remap_y:SpinBox
 var z_axis_remap_z:SpinBox
+# Retargeting
+var show_retargeting_button:Button
+var remapping_json_input:TextEdit
+var generate_from_skeleton_button:Button
 # Import buttons
 var import_button:Button
 var reimport_button:Button
-
-# Bones in the armature may not have the same name as in the BVH.
-export(Dictionary) var bone_remapping:Dictionary = Dictionary()
 
 # We keep in our bone_to_index_map a mapping of bone names (string) to an array of indices.  The index values are determined by this:
 const XPOS = "Xposition"
@@ -59,6 +60,7 @@ const FORWARD_VECTOR = "forward_vector"
 const UP_VECTOR = "up_vector"
 const RIGHT_VECTOR = "right_vector"
 const IGNORE_OFFSETS = "ignore_offsets"
+const BONE_REMAPPING_JSON = "bone_remapping_json"
 
 # GX1 -> +X is right.
 # GZ1 -> +Z is up.
@@ -95,6 +97,11 @@ func _ready():
 	z_axis_remap_y = get_node("ImportTweaks/ForwardAxisOption/y")
 	z_axis_remap_z = get_node("ImportTweaks/ForwardAxisOption/z")
 	
+	show_retargeting_button = get_node("ShowBoneRetargeting")
+	remapping_json_input = get_node("BoneRetargetingGroup/BoneMapJSONEditor")
+	generate_from_skeleton_button = get_node("BoneRetargetingGroup/GenerateFromSkeletonButton")
+	generate_from_skeleton_button.connect("pressed", self, "_generate_json_skeleton_map")
+	
 	import_button = get_node("ImportButton")
 	import_button.connect("pressed", self, "_import")
 	reimport_button = get_node("ReimportButton")
@@ -117,6 +124,7 @@ func get_config_data() -> Dictionary:
 	config[UP_VECTOR] = Vector3(y_axis_remap_x.value, y_axis_remap_y.value, y_axis_remap_z.value)
 	config[FORWARD_VECTOR] = Vector3(z_axis_remap_x.value, z_axis_remap_y.value, z_axis_remap_z.value)
 	config[IGNORE_OFFSETS] = false
+	config[BONE_REMAPPING_JSON] = JSON.parse(remapping_json_input.text)
 	return config
 
 func _import():
@@ -133,6 +141,13 @@ func _on_file_select(file:String):
 	last_filename = file
 	_make_animation(file)
 	reimport_button.disabled = false
+
+func _generate_json_skeleton_map():
+	# Make an 'easy to edit' JSON that we use at import time to remap the bones.
+	# It's effectively a dictionary of bvh bone name -> skeleton bone name.
+	var result_json = ""
+	
+	
 
 #
 # Ideally the material below should not touch UI.  Everything here is concerned with importing and manipulating BVH.
@@ -325,9 +340,10 @@ func parse_motion(root:String, bone_names:Array, bone_index_map:Dictionary, bone
 				translation.y += values[bone_index_map[bone_name][YPOS]]
 			if bone_index_map[bone_name].has(ZPOS):
 				translation.z += values[bone_index_map[bone_name][ZPOS]]
+			translation = _remap_vector_components(translation)
 			
 			# Godot: +X right, -Z forward, +Y up.	
-			var rotation:Quat = Basis(config[RIGHT_VECTOR], config[UP_VECTOR], config[FORWARD_VECTOR]).get_rotation_quat()
+			var rotation:Quat = Quat.IDENTITY
 			var raw_rotation_values:Vector3 = Vector3(0, 0, 0)
 			# NOTE: raw_rot is Not actually anything like axis-angle, just a convenient placeholder for a triple.
 			if bone_index_map[bone_name].has(XROT):
@@ -336,6 +352,7 @@ func parse_motion(root:String, bone_names:Array, bone_index_map:Dictionary, bone
 				raw_rotation_values.y = values[bone_index_map[bone_name][YROT]]
 			if bone_index_map[bone_name].has(ZROT):
 				raw_rotation_values.z = values[bone_index_map[bone_name][ZROT]]
+			raw_rotation_values = _remap_vector_components(raw_rotation_values)
 			
 			# Apply joint rotations.
 			if not bone_index_map[bone_name].has(XROT) and bone_index_map[bone_name].has(YROT) and bone_index_map[bone_name].has(ZROT):
@@ -375,9 +392,11 @@ func parse_motion(root:String, bone_names:Array, bone_index_map:Dictionary, bone
 				# Apply the rotations in the right order.
 				for axis in ordering:
 					rotation = _apply_rotation(rotation, raw_rotation_values.x, raw_rotation_values.y, raw_rotation_values.z, axis)
-			# Doesn't work: transform = Transform(Basis(raw_rotation_values), translation)
-			# Doesn't exist: Quat(raw_rotation_values)
-			# Doesn't work: rotation = _euler_to_quaternion(raw_rotation_values.z, raw_rotation_values.y, raw_rotation_values.x)
+			
+			# Apply bone-name remapping _just_ before we actually set the track.
+			if config[BONE_REMAPPING_JSON].has(bone_name):
+				bone_name = config[BONE_REMAPPING_JSON][bone_name]
+				# TODO: Option to skip unmapped bones.  Leaving as is for now because people can remove them manually.
 			
 			animation.track_set_path(track_index, rig_name + ":" + bone_name)
 			animation.transform_track_insert_key(track_index, step*timestep, translation, rotation, Vector3(1, 1, 1))
@@ -390,22 +409,17 @@ func parse_motion(root:String, bone_names:Array, bone_index_map:Dictionary, bone
 	return animation
 
 func _apply_rotation(rotation:Quat, x:float, y:float, z:float, axis:String) -> Quat:
-	var config = get_config_data()
-	
-	# Godot: +X right, -Z forward, +Y up.	
 	if axis == "X":
-		#rotation = rotation.rotated(config[RIGHT_VECTOR], deg2rad(x))
-		#rotation.set_axis_angle(config[RIGHT_VECTOR], deg2rad(x))
 		rotation *= Quat(Vector3(1, 0, 0), deg2rad(x))
 	elif axis == "Y":
-		#rotation = rotation.rotated(config[UP_VECTOR], deg2rad(y))
-		#rotation.set_axis_angle(config[UP_VECTOR], deg2rad(y))
 		rotation *= Quat(Vector3(0, 1, 0), deg2rad(y))
 	elif axis == "Z":
-		#rotation = rotation.rotated(config[FORWARD_VECTOR], deg2rad(z))
-		#rotation.set_axis_angle(config[FORWARD_VECTOR], deg2rad(z))
 		rotation *= Quat(Vector3(0, 0, 1), deg2rad(z))
 	return rotation.normalized()
+
+func _remap_vector_components(xyz:Vector3) -> Vector3:
+	var config = get_config_data()
+	return config[RIGHT_VECTOR]*xyz.x + config[UP_VECTOR]*xyz.y + config[FORWARD_VECTOR]*xyz.z
 
 func _euler_to_quaternion(yaw:float, pitch:float, roll:float) -> Quat: # Z Y X
 	var cy = cos(yaw * 0.5)
