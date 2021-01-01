@@ -26,6 +26,7 @@ var z_axis_remap_y:SpinBox
 var z_axis_remap_z:SpinBox
 # Retargeting
 var show_retargeting_button:Button
+var bone_retargeting_group:VBoxContainer
 var remapping_json_input:TextEdit
 var generate_from_skeleton_button:Button
 # Import buttons
@@ -98,6 +99,8 @@ func _ready():
 	z_axis_remap_z = get_node("ImportTweaks/ForwardAxisOption/z")
 	
 	show_retargeting_button = get_node("ShowBoneRetargeting")
+	show_retargeting_button.connect("toggled", self, "toggle_bone_retargeting_display")
+	bone_retargeting_group = get_node("BoneRetargetingGroup")
 	remapping_json_input = get_node("BoneRetargetingGroup/BoneMapJSONEditor")
 	generate_from_skeleton_button = get_node("BoneRetargetingGroup/GenerateFromSkeletonButton")
 	generate_from_skeleton_button.connect("pressed", self, "_generate_json_skeleton_map")
@@ -110,6 +113,9 @@ func _ready():
 
 func toggle_tweak_display(toggle):
 	import_tweaks_group.visible = show_tweaks_toggle.pressed
+
+func toggle_bone_retargeting_display(toggle):
+	bone_retargeting_group.visible = show_retargeting_button.pressed
 
 func get_config_data() -> Dictionary:
 	# Reads from our UI and returns a dictionary of String -> Value.
