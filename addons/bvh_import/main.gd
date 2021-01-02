@@ -15,6 +15,7 @@ var show_tweaks_toggle:Button
 var import_tweaks_group:VBoxContainer
 var autoscale_bvh_option:CheckBox
 var ignore_offsets_option:CheckBox
+var transform_scaling_spinbox:SpinBox
 var axis_ordering_dropdown:OptionButton
 var reverse_axis_order:CheckBox
 var x_axis_remap_x:SpinBox # TODO: This should be compacted.  Easy enough to do with indices.
@@ -55,16 +56,18 @@ var channel_index_map = {
 const SKELETON_PATH = "skeleton_path"
 const ANIM_PLAYER_NAME = "animation_player_name"
 const NEW_ANIM_NAME = "new_animation_name"
-var AXIS_ORDERING_NAMES = ["Native", "XYZ", "XZY", "YXZ", "YZX", "ZXY", "ZYX"]
-enum AXIS_ORDERING { NATIVE = 0, XYZ, XZY, YXZ, YZX, ZXY, ZYX }
+const IGNORE_OFFSETS = "ignore_offsets"
+const TRANSFORM_SCALING = "transform_scaling"
+const BONE_REMAPPING_JSON = "bone_remapping_json"
+var AXIS_ORDERING_NAMES = ["Native", "XYZ", "XZY", "YXZ", "YZX", "ZXY", "ZYX", "Reverse Native"]
+enum AXIS_ORDERING { NATIVE = 0, XYZ, XZY, YXZ, YZX, ZXY, ZYX, REVERSE }
 const AXIS_ORDER = "force_axis_ordering"
-const REVERSE_AXIS_ORDER = "reverse_native_order"
 const FORWARD_VECTOR = "forward_vector"
 const UP_VECTOR = "up_vector"
 const RIGHT_VECTOR = "right_vector"
-const IGNORE_OFFSETS = "ignore_offsets"
-const BONE_REMAPPING_JSON = "bone_remapping_json"
 
+# Godot + OpenGL are left-handed.  -Z is forward.  +Y is up.
+# Blender:
 # GX1 -> +X is right.
 # GZ1 -> +Z is up.
 # GY1 -> +Y is forward.
@@ -84,22 +87,21 @@ func _ready():
 	show_tweaks_toggle.connect("toggled", self, "toggle_tweak_display")
 	import_tweaks_group = get_node("ImportTweaksGroup")
 	ignore_offsets_option = get_node("ImportTweaksGroup/IgnoreOffsetsOption")
+	transform_scaling_spinbox = get_node("ImportTweaksGroup/TransformScaleTweak/TransformScaleSpinBox")
 	axis_ordering_dropdown = get_node("ImportTweaksGroup/AxisOrderingOption")
 	# TODO: I would rather not have to add options here.
-	for i in AXIS_ORDERING.values():
-		axis_ordering_dropdown.add_item(AXIS_ORDERING_NAMES[i], i)
-	axis_ordering_dropdown.select(AXIS_ORDERING.NATIVE)
-	reverse_axis_order = get_node("ImportTweaksGroup/ReverseAxisOrder")
-	
-	x_axis_remap_x = get_node("ImportTweaksGroup/RightAxisOption/x")
-	x_axis_remap_y = get_node("ImportTweaksGroup/RightAxisOption/y")
-	x_axis_remap_z = get_node("ImportTweaksGroup/RightAxisOption/z")
-	y_axis_remap_x = get_node("ImportTweaksGroup/UpAxisOption/x")
-	y_axis_remap_y = get_node("ImportTweaksGroup/UpAxisOption/y")
-	y_axis_remap_z = get_node("ImportTweaksGroup/UpAxisOption/z")
-	z_axis_remap_x = get_node("ImportTweaksGroup/ForwardAxisOption/x")
-	z_axis_remap_y = get_node("ImportTweaksGroup/ForwardAxisOption/y")
-	z_axis_remap_z = get_node("ImportTweaksGroup/ForwardAxisOption/z")
+	#for i in AXIS_ORDERING.values():
+	#	axis_ordering_dropdown.add_item(AXIS_ORDERING_NAMES[i], i)
+	axis_ordering_dropdown.select(AXIS_ORDERING.NATIVE)	
+	x_axis_remap_x = get_node("ImportTweaksGroup/XBasisTweak/x")
+	x_axis_remap_y = get_node("ImportTweaksGroup/XBasisTweak/y")
+	x_axis_remap_z = get_node("ImportTweaksGroup/XBasisTweak/z")
+	y_axis_remap_x = get_node("ImportTweaksGroup/YBasisTweak/x")
+	y_axis_remap_y = get_node("ImportTweaksGroup/YBasisTweak/y")
+	y_axis_remap_z = get_node("ImportTweaksGroup/YBasisTweak/z")
+	z_axis_remap_x = get_node("ImportTweaksGroup/ZBasisTweak/x")
+	z_axis_remap_y = get_node("ImportTweaksGroup/ZBasisTweak/y")
+	z_axis_remap_z = get_node("ImportTweaksGroup/ZBasisTweak/z")
 	
 	show_retargeting_button = get_node("ShowBoneRetargeting")
 	show_retargeting_button.connect("toggled", self, "toggle_bone_retargeting_display")
@@ -112,7 +114,6 @@ func _ready():
 	import_button.connect("pressed", self, "_import")
 	reimport_button = get_node("ReimportButton")
 	reimport_button.connect("pressed", self, "_reimport")
-	print("Signals connected.")
 
 func toggle_tweak_display(toggle):
 	import_tweaks_group.visible = show_tweaks_toggle.pressed
@@ -127,12 +128,12 @@ func get_config_data() -> Dictionary:
 	config[SKELETON_PATH] = skeleton_path_input.text
 	config[ANIM_PLAYER_NAME] = animation_player_name_input.text
 	config[NEW_ANIM_NAME] = animation_name_input.text
+	config[IGNORE_OFFSETS] = ignore_offsets_option.pressed
+	config[TRANSFORM_SCALING] = transform_scaling_spinbox.value
 	config[AXIS_ORDER] = axis_ordering_dropdown.selected
-	config[REVERSE_AXIS_ORDER] = reverse_axis_order.pressed
 	config[RIGHT_VECTOR] = Vector3(x_axis_remap_x.value, x_axis_remap_y.value, x_axis_remap_z.value)
 	config[UP_VECTOR] = Vector3(y_axis_remap_x.value, y_axis_remap_y.value, y_axis_remap_z.value)
 	config[FORWARD_VECTOR] = Vector3(z_axis_remap_x.value, z_axis_remap_y.value, z_axis_remap_z.value)
-	config[IGNORE_OFFSETS] = ignore_offsets_option.pressed
 	config[BONE_REMAPPING_JSON] = JSON.parse(remapping_json_input.text).result
 	return config
 
@@ -154,9 +155,21 @@ func _on_file_select(file:String):
 func _generate_json_skeleton_map():
 	# Make an 'easy to edit' JSON that we use at import time to remap the bones.
 	# It's effectively a dictionary of bvh bone name -> skeleton bone name.
-	var result_json = ""
-	
-	
+	# This method feels hacky.  Would be good to clean it up.
+	var config = get_config_data()
+	var rig_name = config[SKELETON_PATH]
+	var skeleton:Skeleton = editor_interface.get_edited_scene_root().get_node(rig_name)
+	if skeleton == null:
+		remapping_json_input.text = "{}"
+		printerr("Failed to find Skeleton/Rig with name ", rig_name + ".")
+		return
+	remapping_json_input.text = "{\n"
+	for bid in range(skeleton.get_bone_count()):
+		if bid > 0:
+			remapping_json_input.text += ",\n"
+		var bone_name = skeleton.get_bone_name(bid)
+		remapping_json_input.text += "\t\"\": \"" + bone_name + "\""
+	remapping_json_input.text += "\n}"
 
 #
 # Ideally the material below should not touch UI.  Everything here is concerned with importing and manipulating BVH.
@@ -192,6 +205,7 @@ func load_bvh_filename(filename:String) -> Animation:
 	var file:File = File.new()
 	if !file.file_exists(filename):
 		printerr("Filename ", filename, " does not exist or cannot be accessed.")
+		return null
 	file.open(filename, File.READ) # "user://some_data"
 	# file.store_string("lmao")
 	var plaintext = file.get_as_text()
@@ -267,8 +281,8 @@ func parse_hierarchy(text:Array):# -> [String, Array, Dictionary, Dictionary]:
 			for c in range(num_channels):
 				var chan = data[2+c]
 				bone_index_map[current_bone][chan] = data_index
-				data_index += 1
 				print(current_bone + " " + chan + ": " + str(data_index))
+				data_index += 1
 		elif line.begins_with("JOINT"):
 			current_bone = line.split(" ", false)[1]
 			bone_names.append(current_bone)
@@ -285,12 +299,6 @@ func parse_hierarchy(text:Array):# -> [String, Array, Dictionary, Dictionary]:
 # WARNING: This method will mutate the input text array.
 func parse_motion(root:String, bone_names:Array, bone_index_map:Dictionary, bone_offsets:Dictionary, text:Array) -> Animation:
 	var config = get_config_data()
-		
-	# Precompute our axises.
-	# -Z forward, +Y up, +x right
-	var up_axis:Vector3 = config[UP_VECTOR] # Locally, +Y
-	var forward_axis:Vector3 = config[FORWARD_VECTOR]
-	var right_axis:Vector3 = config[RIGHT_VECTOR] # Locally +X
 	
 	var rig_name = config[SKELETON_PATH]
 	
@@ -329,78 +337,48 @@ func parse_motion(root:String, bone_names:Array, bone_index_map:Dictionary, bone
 			var bone_name = bone_names[bone_index]
 			
 			# Use negative one so that if we forget a check we fail early and get an index error, rather than bad data.
-			var transformXIndex = bone_index_map[bone_name].get(XPOS, -1)
-			var transformYIndex = bone_index_map[bone_name].get(YPOS, -1)
-			var transformZIndex = bone_index_map[bone_name].get(ZPOS, -1)
-			var rotationXIndex = bone_index_map[bone_name].get(XROT, -1)
-			var rotationYIndex = bone_index_map[bone_name].get(YROT, -1)
-			var rotationZIndex = bone_index_map[bone_name].get(ZROT, -1)
+			var translation_x_index = bone_index_map[bone_name].get(XPOS, -1)
+			var translation_y_index = bone_index_map[bone_name].get(YPOS, -1)
+			var translation_z_index = bone_index_map[bone_name].get(ZPOS, -1)
+			var rotation_x_index = bone_index_map[bone_name].get(XROT, -1)
+			var rotation_y_index = bone_index_map[bone_name].get(YROT, -1)
+			var rotation_z_index = bone_index_map[bone_name].get(ZROT, -1)
 			
 			var translation = Vector3()
 			if not config[IGNORE_OFFSETS]: # These are the _starting_ offsets, not the translations.
-				translation = -Vector3( # Note the negation.
+				translation = Vector3(
 					bone_offsets[bone_name].x,
 					bone_offsets[bone_name].y,
 					bone_offsets[bone_name].z
 				) # Clone this vector so we don't change it between steps.
-			if bone_index_map[bone_name].has(XPOS):
-				translation.x += values[bone_index_map[bone_name][XPOS]]
-			if bone_index_map[bone_name].has(YPOS):
-				translation.y += values[bone_index_map[bone_name][YPOS]]
-			if bone_index_map[bone_name].has(ZPOS):
-				translation.z += values[bone_index_map[bone_name][ZPOS]]
-			translation = _remap_vector_components(translation)
+			if translation_x_index != -1:
+				translation.x += values[translation_x_index]
+			if translation_y_index != -1:
+				translation.y += values[translation_y_index]
+			if translation_z_index != -1:
+				translation.z += values[translation_z_index]
+			translation *= config[TRANSFORM_SCALING]
 			
-			# Godot: +X right, -Z forward, +Y up.	
-			var rotation:Quat = Quat.IDENTITY
+			# Godot: +X right, -Z forward, +Y up.
+			# BVH: +Y up.
 			var raw_rotation_values:Vector3 = Vector3(0, 0, 0)
 			# NOTE: raw_rot is Not actually anything like axis-angle, just a convenient placeholder for a triple.
-			if bone_index_map[bone_name].has(XROT):
-				raw_rotation_values.x = values[bone_index_map[bone_name][XROT]]
-			if bone_index_map[bone_name].has(YROT):
-				raw_rotation_values.y = values[bone_index_map[bone_name][YROT]]
-			if bone_index_map[bone_name].has(ZROT):
-				raw_rotation_values.z = values[bone_index_map[bone_name][ZROT]]
-			raw_rotation_values = _remap_vector_components(raw_rotation_values)
-			
+			raw_rotation_values.x = values[rotation_x_index]
+			raw_rotation_values.y = values[rotation_y_index]
+			raw_rotation_values.z = values[rotation_z_index]
+
 			# Apply joint rotations.
-			if not bone_index_map[bone_name].has(XROT) and bone_index_map[bone_name].has(YROT) and bone_index_map[bone_name].has(ZROT):
-				print("Bone ", bone_name, " is missing rotation information.")
-			else:
-				var ordering:String = ""
-				if config[AXIS_ORDER] == AXIS_ORDERING.NATIVE:
-					# 'Native' rotation order means we apply the rotation in the order we read it.
-					# That means picking the minimum index of XYZ and applying it, then the next index, etc.
-					if rotationXIndex < rotationYIndex and rotationXIndex < rotationZIndex:
-						ordering += "X"
-						if rotationYIndex < rotationZIndex:
-							ordering += "YZ"
-						else:
-							ordering += "ZY"
-					elif rotationYIndex < rotationXIndex and rotationYIndex < rotationZIndex:
-						ordering += "Y"
-						if rotationXIndex < rotationZIndex:
-							ordering += "XZ"
-						else:
-							ordering += "ZX"
-					else: # Z is first.
-						ordering += "Z"
-						if rotationXIndex < rotationYIndex:
-							ordering += "XY"
-						else:
-							ordering += "YX"
-				else:
-					ordering = AXIS_ORDERING_NAMES[config[AXIS_ORDER]]
-				# Potentially flip order.  This is the difference from applying left-to-right and right-to-left.
-				# TODO: rotation.transpose?
-				if config[REVERSE_AXIS_ORDER]:
-					var new_order:String = ""
-					for axis in ordering:
-						new_order = axis + new_order
-					ordering = new_order
-				# Apply the rotations in the right order.
-				for axis in ordering:
-					rotation = _apply_rotation(rotation, raw_rotation_values.x, raw_rotation_values.y, raw_rotation_values.z, axis)
+			if config[AXIS_ORDER] == AXIS_ORDERING.REVERSE:
+				# Something of a hack.  We take the indices in order and sort them, by flipping the index sign we take them in reverse order.
+				rotation_x_index = -rotation_x_index
+				rotation_y_index = -rotation_y_index
+				rotation_z_index = -rotation_z_index
+			elif config[AXIS_ORDER] != AXIS_ORDERING.NATIVE:
+				rotation_x_index = AXIS_ORDERING_NAMES[config[AXIS_ORDER]].find('X')
+				rotation_y_index = AXIS_ORDERING_NAMES[config[AXIS_ORDER]].find('Y')
+				rotation_z_index = AXIS_ORDERING_NAMES[config[AXIS_ORDER]].find('Z')
+			var rotation = _bvh_zxy_to_quaternion(raw_rotation_values.x, raw_rotation_values.y, raw_rotation_values.z, rotation_x_index, rotation_y_index, rotation_z_index)
+			# CAVEAT SCRIPTOR: rotation_*_index is not valid after this operation!
 			
 			# Apply bone-name remapping _just_ before we actually set the track.
 			if config[BONE_REMAPPING_JSON].has(bone_name):
@@ -417,29 +395,23 @@ func parse_motion(root:String, bone_names:Array, bone_index_map:Dictionary, bone
 	
 	return animation
 
-func _apply_rotation(rotation:Quat, x:float, y:float, z:float, axis:String) -> Quat:
-	if axis == "X":
-		rotation *= Quat(Vector3(1, 0, 0), deg2rad(x))
-	elif axis == "Y":
-		rotation *= Quat(Vector3(0, 1, 0), deg2rad(y))
-	elif axis == "Z":
-		rotation *= Quat(Vector3(0, 0, 1), deg2rad(z))
-	return rotation.normalized()
+class FirstIndexSort:
+	static func sort_ascending(a, b):
+		if a[0] > b[0]:
+			return true
+		return false
 
-func _remap_vector_components(xyz:Vector3) -> Vector3:
+func _bvh_zxy_to_quaternion(x:float, y:float, z:float, x_idx:int, y_idx:int, z_idx:int) -> Quat:
+	# From BVH documentation: "it goes Z rotation, followed by the X rotation and finally the Y rotation."
+	# But there are some applications which change the ordering.  
 	var config = get_config_data()
-	return config[RIGHT_VECTOR]*xyz.x + config[UP_VECTOR]*xyz.y + config[FORWARD_VECTOR]*xyz.z
-
-func _euler_to_quaternion(yaw:float, pitch:float, roll:float) -> Quat: # Z Y X
-	var cy = cos(yaw * 0.5)
-	var sy = sin(yaw * 0.5)
-	var cp = cos(pitch * 0.5)
-	var sp = sin(pitch * 0.5)
-	var cr = cos(roll * 0.5)
-	var sr = sin(roll * 0.5)
-	
-	var x = cy * cp * sr - sy * sp * cr
-	var y = sy * cp * sr + cy * sp * cr
-	var z = sy * cp * cr - cy * sp * sr
-	var w = cy * cp * cr + sy * sp * sr
-	return Quat(x, y, z, w)
+	var rotation := Quat.IDENTITY
+	var x_rot = Quat(config[RIGHT_VECTOR], deg2rad(x))
+	var y_rot = Quat(config[UP_VECTOR], deg2rad(y))
+	var z_rot = Quat(config[FORWARD_VECTOR], deg2rad(z))
+	# This is a lazy way of sorting the actions into appropriate order.
+	var rotation_matrices = [[x_idx, x_rot], [y_idx, y_rot], [z_idx, z_rot]]
+	rotation_matrices.sort_custom(FirstIndexSort, "sort_ascending")
+	for r in rotation_matrices:
+		rotation *= r[1]
+	return rotation

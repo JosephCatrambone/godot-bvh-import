@@ -3,7 +3,6 @@
 [ext_resource path="res://addons/bvh_import/main.gd" type="Script" id=1]
 
 [sub_resource type="ButtonGroup" id=1]
-resource_name = "AxisOrderingGroup"
 
 [node name="BVHImport" type="VBoxContainer"]
 anchor_right = 1.0
@@ -20,7 +19,7 @@ rect_min_size = Vector2( 480, 320 )
 window_title = "Open a File"
 mode = 0
 access = 2
-filters = PoolStringArray( "*.bvh ; Biovision Hierarchy", "*.bvh ; Biovision Hierarchy", "*.bvh ; Biovision Hierarchy" )
+filters = PoolStringArray( "*.bvh ; Biovision Hierarchy", "*.bvh ; Biovision Hierarchy", "*.bvh ; Biovision Hierarchy", "*.bvh ; Biovision Hierarchy", "*.bvh ; Biovision Hierarchy", "*.bvh ; Biovision Hierarchy", "*.bvh ; Biovision Hierarchy" )
 current_dir = "/GodotProjects/godot-bvh-import"
 current_path = "/GodotProjects/godot-bvh-import/"
 
@@ -77,7 +76,6 @@ margin_bottom = 186.0
 text = "Show Import Tweaks"
 
 [node name="ImportTweaksGroup" type="VBoxContainer" parent="."]
-visible = false
 margin_top = 190.0
 margin_right = 1024.0
 margin_bottom = 450.0
@@ -92,9 +90,10 @@ text = "Autoscale BVH to Match Target Skeleton"
 margin_top = 28.0
 margin_right = 1024.0
 margin_bottom = 52.0
+pressed = true
 text = "Ignore Starting Offsets"
 
-[node name="AxisLabel" type="Label" parent="ImportTweaksGroup"]
+[node name="AxisOrderingLabel" type="Label" parent="ImportTweaksGroup"]
 margin_top = 56.0
 margin_right = 1024.0
 margin_bottom = 70.0
@@ -106,120 +105,217 @@ margin_right = 1024.0
 margin_bottom = 94.0
 group = SubResource( 1 )
 text = "Native"
-items = [ "Native", null, false, 0, null, "XYZ", null, false, 1, null, "XZY", null, false, 2, null, "YXZ", null, false, 3, null, "YZX", null, false, 4, null, "ZXY", null, false, 5, null, "ZYX", null, false, 6, null ]
+items = [ "Native", null, false, 0, null, "XYZ", null, false, 1, null, "XZY", null, false, 2, null, "YXZ", null, false, 3, null, "YZX", null, false, 4, null, "ZXY", null, false, 5, null, "ZYX", null, false, 6, null, "Reverse Native", null, false, 7, null ]
 selected = 0
 
-[node name="ReverseAxisOrder" type="CheckBox" parent="ImportTweaksGroup"]
+[node name="TransformScaleTweak" type="HBoxContainer" parent="ImportTweaksGroup"]
 margin_top = 98.0
 margin_right = 1024.0
 margin_bottom = 122.0
-text = "Reverse Native Axis Order"
 
-[node name="ForwardAxisLabel" type="Label" parent="ImportTweaksGroup"]
+[node name="TransformScaleLabel" type="Label" parent="ImportTweaksGroup/TransformScaleTweak"]
+margin_top = 5.0
+margin_right = 206.0
+margin_bottom = 19.0
+text = "Animation Transform Rescaling: "
+
+[node name="TransformScaleSpinBox" type="SpinBox" parent="ImportTweaksGroup/TransformScaleTweak"]
+margin_left = 210.0
+margin_right = 1024.0
+margin_bottom = 24.0
+size_flags_horizontal = 3
+min_value = 0.001
+max_value = 10.0
+step = 0.001
+value = 1.0
+allow_greater = true
+
+[node name="XBasisLabel" type="Label" parent="ImportTweaksGroup"]
 margin_top = 126.0
 margin_right = 1024.0
 margin_bottom = 140.0
-text = "Remap Z / Forward Vector:"
+text = "X Basis (Right) Vector:"
 
-[node name="ForwardAxisOption" type="HBoxContainer" parent="ImportTweaksGroup"]
+[node name="XBasisTweak" type="HBoxContainer" parent="ImportTweaksGroup"]
 margin_top = 144.0
 margin_right = 1024.0
 margin_bottom = 168.0
+__meta__ = {
+"_edit_use_anchors_": false
+}
 
-[node name="x" type="SpinBox" parent="ImportTweaksGroup/ForwardAxisOption"]
-margin_right = 74.0
-margin_bottom = 24.0
-min_value = -1.0
-max_value = 1.0
+[node name="XLabel" type="Label" parent="ImportTweaksGroup/XBasisTweak"]
+margin_top = 5.0
+margin_right = 12.0
+margin_bottom = 19.0
+text = "X:"
 
-[node name="y" type="SpinBox" parent="ImportTweaksGroup/ForwardAxisOption"]
-margin_left = 78.0
-margin_right = 152.0
-margin_bottom = 24.0
-min_value = -1.0
-max_value = 1.0
-
-[node name="z" type="SpinBox" parent="ImportTweaksGroup/ForwardAxisOption"]
-margin_left = 156.0
-margin_right = 230.0
+[node name="x" type="SpinBox" parent="ImportTweaksGroup/XBasisTweak"]
+margin_left = 16.0
+margin_right = 90.0
 margin_bottom = 24.0
 min_value = -1.0
 max_value = 1.0
 value = 1.0
 
-[node name="UpAxisLabel" type="Label" parent="ImportTweaksGroup"]
+[node name="YLabel" type="Label" parent="ImportTweaksGroup/XBasisTweak"]
+margin_left = 94.0
+margin_top = 5.0
+margin_right = 105.0
+margin_bottom = 19.0
+text = "Y:"
+
+[node name="y" type="SpinBox" parent="ImportTweaksGroup/XBasisTweak"]
+margin_left = 109.0
+margin_right = 183.0
+margin_bottom = 24.0
+min_value = -1.0
+max_value = 1.0
+
+[node name="ZLabel" type="Label" parent="ImportTweaksGroup/XBasisTweak"]
+margin_left = 187.0
+margin_top = 5.0
+margin_right = 199.0
+margin_bottom = 19.0
+text = "Z:"
+
+[node name="z" type="SpinBox" parent="ImportTweaksGroup/XBasisTweak"]
+margin_left = 203.0
+margin_right = 277.0
+margin_bottom = 24.0
+min_value = -1.0
+max_value = 1.0
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="YBasisLabel" type="Label" parent="ImportTweaksGroup"]
 margin_top = 172.0
 margin_right = 1024.0
 margin_bottom = 186.0
-text = "Remap Y / Up Vector:"
+text = "Y Basis (Up) Vector:"
 
-[node name="UpAxisOption" type="HBoxContainer" parent="ImportTweaksGroup"]
+[node name="YBasisTweak" type="HBoxContainer" parent="ImportTweaksGroup"]
 margin_top = 190.0
 margin_right = 1024.0
 margin_bottom = 214.0
+__meta__ = {
+"_edit_use_anchors_": false
+}
 
-[node name="x" type="SpinBox" parent="ImportTweaksGroup/UpAxisOption"]
-margin_right = 74.0
+[node name="XLabel" type="Label" parent="ImportTweaksGroup/YBasisTweak"]
+margin_top = 5.0
+margin_right = 12.0
+margin_bottom = 19.0
+text = "X:"
+
+[node name="x" type="SpinBox" parent="ImportTweaksGroup/YBasisTweak"]
+margin_left = 16.0
+margin_right = 90.0
 margin_bottom = 24.0
 min_value = -1.0
 max_value = 1.0
 
-[node name="y" type="SpinBox" parent="ImportTweaksGroup/UpAxisOption"]
-margin_left = 78.0
-margin_right = 152.0
+[node name="YLabel" type="Label" parent="ImportTweaksGroup/YBasisTweak"]
+margin_left = 94.0
+margin_top = 5.0
+margin_right = 105.0
+margin_bottom = 19.0
+text = "Y:"
+
+[node name="y" type="SpinBox" parent="ImportTweaksGroup/YBasisTweak"]
+margin_left = 109.0
+margin_right = 183.0
 margin_bottom = 24.0
 min_value = -1.0
 max_value = 1.0
 value = 1.0
 
-[node name="z" type="SpinBox" parent="ImportTweaksGroup/UpAxisOption"]
-margin_left = 156.0
-margin_right = 230.0
+[node name="ZLabel" type="Label" parent="ImportTweaksGroup/YBasisTweak"]
+margin_left = 187.0
+margin_top = 5.0
+margin_right = 199.0
+margin_bottom = 19.0
+text = "Z:"
+
+[node name="z" type="SpinBox" parent="ImportTweaksGroup/YBasisTweak"]
+margin_left = 203.0
+margin_right = 277.0
 margin_bottom = 24.0
 min_value = -1.0
 max_value = 1.0
+__meta__ = {
+"_edit_use_anchors_": false
+}
 
-[node name="RightAxisLabel" type="Label" parent="ImportTweaksGroup"]
+[node name="ZBasisLabel" type="Label" parent="ImportTweaksGroup"]
 margin_top = 218.0
 margin_right = 1024.0
 margin_bottom = 232.0
-text = "Remap X / Right Vector:"
+text = "Z Basis (Forward) Vector:"
 
-[node name="RightAxisOption" type="HBoxContainer" parent="ImportTweaksGroup"]
+[node name="ZBasisTweak" type="HBoxContainer" parent="ImportTweaksGroup"]
 margin_top = 236.0
 margin_right = 1024.0
 margin_bottom = 260.0
+__meta__ = {
+"_edit_use_anchors_": false
+}
 
-[node name="x" type="SpinBox" parent="ImportTweaksGroup/RightAxisOption"]
-margin_right = 74.0
+[node name="XLabel" type="Label" parent="ImportTweaksGroup/ZBasisTweak"]
+margin_top = 5.0
+margin_right = 12.0
+margin_bottom = 19.0
+text = "X:"
+
+[node name="x" type="SpinBox" parent="ImportTweaksGroup/ZBasisTweak"]
+margin_left = 16.0
+margin_right = 90.0
+margin_bottom = 24.0
+min_value = -1.0
+max_value = 1.0
+
+[node name="YLabel" type="Label" parent="ImportTweaksGroup/ZBasisTweak"]
+margin_left = 94.0
+margin_top = 5.0
+margin_right = 105.0
+margin_bottom = 19.0
+text = "Y:"
+
+[node name="y" type="SpinBox" parent="ImportTweaksGroup/ZBasisTweak"]
+margin_left = 109.0
+margin_right = 183.0
+margin_bottom = 24.0
+min_value = -1.0
+max_value = 1.0
+
+[node name="ZLabel" type="Label" parent="ImportTweaksGroup/ZBasisTweak"]
+margin_left = 187.0
+margin_top = 5.0
+margin_right = 199.0
+margin_bottom = 19.0
+text = "Z:"
+
+[node name="z" type="SpinBox" parent="ImportTweaksGroup/ZBasisTweak"]
+margin_left = 203.0
+margin_right = 277.0
 margin_bottom = 24.0
 min_value = -1.0
 max_value = 1.0
 value = 1.0
-
-[node name="y" type="SpinBox" parent="ImportTweaksGroup/RightAxisOption"]
-margin_left = 78.0
-margin_right = 152.0
-margin_bottom = 24.0
-min_value = -1.0
-max_value = 1.0
-
-[node name="z" type="SpinBox" parent="ImportTweaksGroup/RightAxisOption"]
-margin_left = 156.0
-margin_right = 230.0
-margin_bottom = 24.0
-min_value = -1.0
-max_value = 1.0
+__meta__ = {
+"_edit_use_anchors_": false
+}
 
 [node name="HSeparator2" type="HSeparator" parent="."]
-margin_top = 190.0
+margin_top = 454.0
 margin_right = 1024.0
-margin_bottom = 194.0
+margin_bottom = 458.0
 
 [node name="ShowBoneRetargeting" type="CheckButton" parent="."]
-margin_top = 198.0
+margin_top = 462.0
 margin_right = 1024.0
-margin_bottom = 238.0
+margin_bottom = 502.0
 text = "Show Bone Retargeting Options"
 
 [node name="BoneRetargetingGroup" type="VBoxContainer" parent="."]
@@ -249,19 +345,19 @@ margin_bottom = 302.0
 text = "Generate from Skeleton"
 
 [node name="HSeparator3" type="HSeparator" parent="."]
-margin_top = 242.0
+margin_top = 506.0
 margin_right = 1024.0
-margin_bottom = 246.0
+margin_bottom = 510.0
 
 [node name="ImportButton" type="Button" parent="."]
-margin_top = 250.0
+margin_top = 514.0
 margin_right = 1024.0
-margin_bottom = 270.0
+margin_bottom = 534.0
 text = "Import"
 
 [node name="ReimportButton" type="Button" parent="."]
-margin_top = 274.0
+margin_top = 538.0
 margin_right = 1024.0
-margin_bottom = 294.0
+margin_bottom = 558.0
 disabled = true
 text = "Reimport"
